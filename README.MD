@@ -1,4 +1,4 @@
-# Project_RU
+# ABCE-
 
 GIT
 ===
@@ -52,6 +52,10 @@ python -m venv venv
 Then pip install all libraries. For instance to virtuall install 'Flask' run:
 ````
 pip install Fask
+````
+To install all requirements run:
+````
+pip install -r requirements.txt
 ````
 ## Run flask application
 In order to run the application move to the 'flaskr' directory and type:
