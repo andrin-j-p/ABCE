@@ -13,10 +13,10 @@ sys.path.append(parent_directory)
 from Sugarsim.read_data import read_dataframe
 
 """
-Name: TestReadDataFram
+Name: TestReadDataFrame
 Purpose: Unittesting for functions in read_data
-Input: None
-Output: 
+Input: <None>
+Output: <boolean> test passed or not passed
 """
 class TestReadData(unittest.TestCase):
 

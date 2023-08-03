@@ -9,12 +9,13 @@ pd.set_option('expand_frame_repr', False)
 pd.set_option('display.width', 10000)
 
 def read_dataframe(file_name):
+    # locate the rawdata file
     current_directory = os.path.dirname(os.path.abspath(__file__))
-    file = current_directory + "/rawdata/" + file_name
+    parent_directory = os.path.dirname(current_directory)
+    file = parent_directory + "/data/rawdata/" + file_name
 
     try:
       df = pd.read_stata(file)
-      print(f"read file {file}")
       return df
     
     except FileNotFoundError:
@@ -31,4 +32,4 @@ def summary_stats():
     pass
 
 
-df_location = read_dataframe("CleanGeography_PUBLIC.dta")
+
