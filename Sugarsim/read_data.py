@@ -8,12 +8,14 @@ pd.set_option('display.max_rows', None)
 pd.set_option('expand_frame_repr', False)
 pd.set_option('display.width', 10000)
 
+## read data from rawdata file into pandas dataframe
 def read_dataframe(file_name):
-    # locate the rawdata file
+    # create path to rawdata file
     current_directory = os.path.dirname(os.path.abspath(__file__))
     parent_directory = os.path.dirname(current_directory)
     file = parent_directory + "/data/rawdata/" + file_name
 
+    # open the requested file
     try:
       df = pd.read_stata(file)
       return df
