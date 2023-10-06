@@ -1,4 +1,8 @@
-# ABCE-
+# ABCE
+run code from console for imports to be resolved properly
+````
+python -m main
+````
 
 GIT
 ===
