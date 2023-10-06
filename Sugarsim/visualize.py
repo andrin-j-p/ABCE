@@ -21,7 +21,7 @@ gdf['NAME_3']
 
 #%%
 #Alego, Ugunja and Ukwala
-county_list = ['CentralAlego', 'NorthAlego', 'SouthEastAlego', 'WestAlego', 'Ugunja', 'Ukwala' ]
+county_list = ['CentralAlego', 'NorthAlego', 'SouthEastAlego', 'WestAlego', 'SiayaTownship', 'Ugunja', 'Ukwala' ]
 filtered_gdf = gdf[gdf['NAME_3'].isin(county_list)]
 
 
