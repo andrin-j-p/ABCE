@@ -18,7 +18,7 @@ def is_in_kenya(pot_lat, pot_lon):
   used in [class] Sugarscape
   """
   # Load GeoJSON file containing sectors
-  file_path = read_dataframe("ken.json", retval="file")
+  file_path = read_dataframe("filtered_ken.json", retval="file")
   with open(file_path) as f:
       js = json.load(f)
 
@@ -71,8 +71,8 @@ class Sugarscepe(mesa.Model):
     while agent_id < N:
        # randomly create coordinates and check if they are in Kenya. 
        # The random corrdinates are within a rectangular grid around kenya
-       lat = np.random.uniform(-4.68, 4.67)
-       lon = np.random.uniform(33.91, 41.89)
+       lat = np.random.uniform(-0.0407, 0.2463 )
+       lon = np.random.uniform(34.1223, 34.3808 )
        res, geo_feature = is_in_kenya(lat, lon)
 
        # if the coordinates are inside Kenya create- and place an agent there
