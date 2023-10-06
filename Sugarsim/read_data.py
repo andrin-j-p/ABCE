@@ -47,11 +47,11 @@ def data_preprocessing(data):
 def summary_stats(df):
     df.describe()
 
-df_location = read_dataframe("CleanGeography_PUBLIC.dta")
-df_hh1 = read_dataframe("GE_HH-Census-BL_PUBLIC.dta")
-df_hh2 = read_dataframe("GE_HH-Survey-BL_PUBLIC.dta")
-df_hh3 = read_dataframe("GE_HH-SampleMaster_PUBLIC.dta")
-summary_stats(df_hh1)
+#df_location = read_dataframe("CleanGeography_PUBLIC.dta")
+#df_hh1 = read_dataframe("GE_HH-Census-BL_PUBLIC.dta")
+#df_hh2 = read_dataframe("GE_HH-Survey-BL_PUBLIC.dta")
+#df_hh3 = read_dataframe("GE_HH-SampleMaster_PUBLIC.dta")
+
 
 
 

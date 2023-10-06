@@ -54,7 +54,7 @@ class Agent(mesa.Agent):
 
 class Sugarscepe(mesa.Model):
 
-  def __init__(self, min_lat=-4.68 , max_lat=4.67, min_lon=33.91, max_lon=41.89, N=20):
+  def __init__(self, min_lat=-4.68 , max_lat=4.67, min_lon=33.91, max_lon=41.89, N=5):
     # set the min_x to min lat in Kenya and max_x to max_lat
     self.x_min = min_lat
     self.x_max = max_lat
