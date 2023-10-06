@@ -42,6 +42,11 @@ To switch back to main run
 >>> git checkout main
 ````
 
+Push main to github
+````
+git push -u origin <branch>
+````
+
 An additional handy command is git status which reports which files are tracked etc. 
 ````
 >>> git status

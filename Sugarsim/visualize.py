@@ -1,52 +1,44 @@
-# %%
 import json
 import pandas as pd
 import numpy as np
 import plotly.express as px
 import dash
 from dash import dcc, html, Input, Output
-import plotly.graph_objs as go
 from ABM import run_simulation
 from read_data import read_dataframe
 import geopandas as gpd
 
+#start dash application
 app = dash.Dash(__name__)
 
 # Load the GeoJSON data 
-
-# Read the GeoJSON file
 file_name = read_dataframe("ken.json", retval="file")
 gdf = gpd.read_file(file_name)
-gdf['NAME_3']
 
-#%%
-#Alego, Ugunja and Ukwala
+# Extract the three subcounties (Alego, Ugunja and Ukwala) where the experiment took place
 county_list = ['CentralAlego', 'NorthAlego', 'SouthEastAlego', 'WestAlego', 'SiayaTownship', 'Ugunja', 'Ukwala' ]
 filtered_gdf = gdf[gdf['NAME_3'].isin(county_list)]
 
-
 # Save the filtered GeoJSON to a new file
 filtered_gdf.to_file('../data/filtered_ken.json', driver='GeoJSON')
-
-
 file_name = read_dataframe("filtered_ken.json", retval="file")
 polygons = json.load(open(file_name, "r"))
 
-#%%
-# Ensure that the "fips" values in the DataFrame correspond to the "id" values in GeoJSON
-l = []
-for feature in polygons['features']:
-    l.append(feature["properties"]["GID_3"])
-length = len(l)
-
-# Generate some data for each region defined in GeoJSON. 
-# @TODO use real population data 
-df = pd.DataFrame({"fips": l, "unemp": np.random.uniform(0.4, 10.4, length)})
-
-# get the agent positions from the simulation
-agent_pos = run_simulation()
+# Get the agent positions from the simulation
+model = run_simulation()
+agent_pos = model.get_agent_pos()
 agent_lon = [pos[1] for pos in agent_pos]
 agent_lat = [pos[0] for pos in agent_pos]
+
+# Generate a dummy dataset for information  
+# @TODO use real population data 
+# @TODO add animation https://plotly.com/python/animations/
+l = []
+N = model.N
+for i in range(N):
+    l.append(i)
+
+df = pd.DataFrame({"agent_lat": agent_lat, "agent_lon": agent_lon, "fips": l, "unemp": np.random.uniform(0.4, 10.4, N)})
 
 # define app layout
 app.layout = html.Div([
@@ -82,43 +74,38 @@ One Input: obtained from html with id slct_range. I.p. value
      Output(component_id='ABM_map', component_property='figure')],
      [Input(component_id='slct_range', component_property='value')]
 )
+
 # automatically takes the Input value as argument. If there are two inputs there are two arguments in update_graph
 def update_graph(option_slctd):
-
+    # displays the option selected
     container = f"Range chosen is: {option_slctd}"
 
     # update information on unemployment 
     dff = df.copy()
-    dff['unemp'] = np.random.uniform(0, option_slctd, length)
+    dff['unemp'] = np.random.uniform(0, option_slctd, N)
     
-    # https://plotly.com/python/scattermapbox/
-    # https://plotly.com/python/reference/choropleth/
-    # @TODO add hover
-    fig = go.Figure()
-    fig.add_trace(go.Choropleth(
-            geojson=polygons,
-            locations=dff["fips"],
-            featureidkey="properties.GID_3",
-            z=dff["unemp"],
-            colorscale="Viridis", 
-            zmin=0, 
-            zmax=option_slctd,
-        )
+    # creates the scatter map and superimposes the county borders where the experiment took place
+    fig = px.scatter_mapbox(dff, lat="agent_lat", lon="agent_lon", color="fips", size="unemp",
+                  color_continuous_scale=px.colors.cyclical.IceFire, range_color=(0, option_slctd), height=1000).update_layout(
+        mapbox={
+            "style": "carto-positron",
+            "zoom": 11,
+            "layers": [
+                {
+                    "source": polygons,
+                    "below": "traces",
+                    "type": "line",
+                    "color": "black",
+                    "line": {"width": 1.5},
+                }
+            ],
+        },
+        margin={"l": 0, "r": 0, "t": 0, "b": 0},
     )
 
-    # Add agent as dot
-    fig.add_trace(go.Scattergeo(
-      lon = agent_lon,
-      lat = agent_lat,
-      mode = 'markers',
-      marker_color = "red",
-      ))
+    fig.update_traces(visible=True)
 
-    # set focus of the map
-    fig.update_geos(fitbounds="locations", visible=True)
-    fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0} )
-
-    #outputs
+    # return the outputs
     return container, fig
 
 
