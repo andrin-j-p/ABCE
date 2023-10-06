@@ -6,7 +6,7 @@ import plotly.express as px
 import dash
 from dash import dcc, html, Input, Output
 import plotly.graph_objs as go
-#from ABM import run_simulation
+from ABM import run_simulation
 from read_data import read_dataframe
 import geopandas as gpd
 
@@ -17,17 +17,20 @@ app = dash.Dash(__name__)
 # Read the GeoJSON file
 file_name = read_dataframe("ken.json", retval="file")
 gdf = gpd.read_file(file_name)
-gdf.columns
-set(gdf['NAME_3'])
+gdf['NAME_3']
+
+#%%
 #Alego, Ugunja and Ukwala
-# Filter features based on a property (e.g., 'category' equals 'A')
-filtered_gdf = gdf.loc[gdf['NAME_3'] == 'Alego']
+county_list = ['CentralAlego', 'NorthAlego', 'SouthEastAlego', 'WestAlego', 'Ugunja', 'Ukwala' ]
+filtered_gdf = gdf[gdf['NAME_3'].isin(county_list)]
+
 
 # Save the filtered GeoJSON to a new file
-filtered_gdf.to_file('filtered_ken.json', driver='JSON')
+filtered_gdf.to_file('../data/filtered_ken.json', driver='GeoJSON')
 
 
-polygons["features"][1]
+file_name = read_dataframe("filtered_ken.json", retval="file")
+polygons = json.load(open(file_name, "r"))
 
 #%%
 # Ensure that the "fips" values in the DataFrame correspond to the "id" values in GeoJSON
@@ -112,7 +115,7 @@ def update_graph(option_slctd):
       ))
 
     # set focus of the map
-    fig.update_geos(fitbounds="locations", visible=False)
+    fig.update_geos(fitbounds="locations", visible=True)
     fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0} )
 
     #outputs
