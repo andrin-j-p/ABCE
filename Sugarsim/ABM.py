@@ -4,36 +4,8 @@ import numpy as np
 import math
 import pandas as pd
 import matplotlib as mpl
-import matplotlib.pyplot as plt
 import networkx as nx
-import geopandas as gpd
-import json
-from read_data import read_dataframe
-from shapely.geometry import Point, shape 
-
-
-def is_in_kenya(pot_lat, pot_lon):
-  """
-  Helper function to identify if a given coordinate is in Kenya
-  used in [class] Sugarscape
-  """
-  # Load GeoJSON file containing sectors
-  file_path = read_dataframe("filtered_ken.json", retval="file")
-  with open(file_path) as f:
-      js = json.load(f)
-
-  # construct point based on lon/lat
-  point = Point(pot_lon, pot_lat)
-
-  # check every constituent polygon to see if it contains the point
-  for feature in js['features']:
-      polygon = shape(feature['geometry'])
-      if polygon.contains(point):
-          #print('Found containing polygon:', feature)
-          return True, feature
-
-  # return false if it is not part of any polygon
-  return False, None
+from read_data import create_agent_data
 
 
 class Agent(mesa.Agent): 
@@ -42,14 +14,16 @@ class Agent(mesa.Agent):
   - has a metabolism
   
   """
-  def __init__(self, unique_id, model, pos, geo_feature):
+  def __init__(self, unique_id, model, pos, county, income, land):
     super().__init__(unique_id, model)
     self.id  = unique_id
-    self.pos = pos
-    self.geo_feature = geo_feature # json object
+    self.pos = pos # tuple of shape (lat, lon) as used for continuous_grid in mesa
+    self.county = county 
+    self.income = income
+    self.land = land
 
   def __repr__(self):
-        return f'Agent: {self.id} at coordinates: {self.pos} constituency {self.geo_feature["properties"]["NAME_3"]}'
+        return f'Agent: {self.id} at coordinates: {self.pos} constituency {self.county}'
 
 
 class Sugarscepe(mesa.Model):
@@ -66,37 +40,36 @@ class Sugarscepe(mesa.Model):
     #initialize scheduler
     self.schedule = mesa.time.RandomActivation(self)
 
+    # load the dataset containing the columns speciefied and store it as a model attribute
+    cols_used = ["id", "p3_totincome", "own_land_acres"]
+    self.df = create_agent_data(self.N, cols_used=cols_used)
+    
+    print("I have been called")
+    # create a list of agents based on the loaded df 
+    agent_list = [Agent(row.id, self, (row.lat, row.lon), row.county, row.p3_totincome, row.own_land_acres ) for row in self.df.itertuples()]
+    
     # Agentize the grid with N agents
-    agent_id = 0
-    while agent_id < N:
-       # randomly create coordinates and check if they are in Kenya. 
-       # The random corrdinates are within a rectangular grid around kenya
-       lat = np.random.uniform(-0.0407, 0.2463 )
-       lon = np.random.uniform(34.1223, 34.3808 )
-       res, geo_feature = is_in_kenya(lat, lon)
-
-       # if the coordinates are inside Kenya create- and place an agent there
-       if res == True:
-          agent = Agent(agent_id, self, (lat, lon), geo_feature)
-          print(agent)
+    for agent in agent_list:
 
           # place agent on grid
-          self.grid.place_agent(agent, (lat, lon))
+          self.grid.place_agent(agent, agent.pos)
 
           # store grid-location in schedule
           self.schedule.add(agent) 
 
-          # update agent id
-          agent_id += 1
 
-  def get_agent_pos(self):
+  def get_agent_info(self):
     """
-    Function to return coordinates of all agents in model
+    Function to return the atribtues of all agents as df 
+    -coordinates
+    -income
+    -age
+    -county where positioned
     """
-    return [agent.pos for agent in self.schedule.agents]
+    pass
 
 
 def run_simulation():
-  model = Sugarscepe()
+  model = Sugarscepe(N=5000)
   return model
 

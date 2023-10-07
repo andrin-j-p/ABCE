@@ -24,21 +24,9 @@ filtered_gdf.to_file('../data/filtered_ken.json', driver='GeoJSON')
 file_name = read_dataframe("filtered_ken.json", retval="file")
 polygons = json.load(open(file_name, "r"))
 
-# Get the agent positions from the simulation
+# Get the agent information from the simulation
 model = run_simulation()
-agent_pos = model.get_agent_pos()
-agent_lon = [pos[1] for pos in agent_pos]
-agent_lat = [pos[0] for pos in agent_pos]
-
-# Generate a dummy dataset for information  
-# @TODO use real population data 
-# @TODO add animation https://plotly.com/python/animations/
-l = []
-N = model.N
-for i in range(N):
-    l.append(i)
-
-df = pd.DataFrame({"agent_lat": agent_lat, "agent_lon": agent_lon, "fips": l, "unemp": np.random.uniform(0.4, 10.4, N)})
+df = model.df
 
 # define app layout
 app.layout = html.Div([
@@ -47,12 +35,12 @@ app.layout = html.Div([
 
     dcc.Dropdown(id="slct_range",
                  options=[
-                  {"label":10, "value":10},
-                  {"label":20, "value":20},
-                  {"label":30, "value":30}
+                  {"label":100, "value":100},
+                  {"label":1000, "value":1000},
+                  {"label":5000, "value":5000}
                   ],
                   multi=False,
-                  value=10,
+                  value=100,
                   style={'width':'40%'}
                 ),
 
@@ -78,15 +66,15 @@ One Input: obtained from html with id slct_range. I.p. value
 # automatically takes the Input value as argument. If there are two inputs there are two arguments in update_graph
 def update_graph(option_slctd):
     # displays the option selected
-    container = f"Range chosen is: {option_slctd}"
+    container = f"Number of agents chosen is: {option_slctd}"
 
-    # update information on unemployment 
+    # update [number of agents to be displayed] 
     dff = df.copy()
-    dff['unemp'] = np.random.uniform(0, option_slctd, N)
-    
+    dff = dff[:option_slctd]
+
     # creates the scatter map and superimposes the county borders where the experiment took place
-    fig = px.scatter_mapbox(dff, lat="agent_lat", lon="agent_lon", color="fips", size="unemp",
-                  color_continuous_scale=px.colors.cyclical.IceFire, range_color=(0, option_slctd), height=1000).update_layout(
+    fig = px.scatter_mapbox(dff, lat="lat", lon="lon", color="p3_totincome", size="own_land_acres",
+                  color_continuous_scale=px.colors.cyclical.IceFire,  height=1000).update_layout(
         mapbox={
             "style": "carto-positron",
             "zoom": 11,
