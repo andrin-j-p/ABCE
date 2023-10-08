@@ -23,7 +23,7 @@ class Agent(mesa.Agent):
 
     # pos is a tuple of shape (lat, lon) as used for continuous_grid in mesa
     # it is randomly clustered around the village the agent belongs to
-    self.pos = (self.village.pos[0] + np.random.uniform(-0.0001, 0.0001), self.village.pos[1] + np.random.uniform(-0.0001, 0.0001))
+    self.pos = (self.village.pos[0] + np.random.uniform(-0.0001, 0.0001), self.village.pos[1] + np.random.uniform(-0.0001, 0.00chec01))
     self.income = income
     self.land = land
 
