@@ -4,7 +4,7 @@ import numpy as np
 import plotly.express as px
 import dash
 from dash import dcc, html, Input, Output
-from ABM import run_simulation
+import ABM 
 from read_data import read_dataframe
 import geopandas as gpd
 
@@ -25,8 +25,8 @@ file_name = read_dataframe("filtered_ken.json", retval="file")
 polygons = json.load(open(file_name, "r"))
 
 # Get the agent information from the simulation
-model = run_simulation()
-df = model.df
+model = ABM.run_simulation()
+df = model.get_data()
 
 # define app layout
 app.layout = html.Div([
@@ -73,8 +73,8 @@ def update_graph(option_slctd):
     dff = dff[:option_slctd]
 
     # creates the scatter map and superimposes the county borders where the experiment took place
-    fig = px.scatter_mapbox(dff, lat="lat", lon="lon", color="p3_totincome", size="own_land_acres",
-                  color_continuous_scale=px.colors.cyclical.IceFire,  height=1000).update_layout(
+    fig = px.scatter_mapbox(dff, lat="lat", lon="lon", color="income", size="land",
+                  color_continuous_scale=px.colors.cyclical.IceFire, height=1000).update_layout(
         mapbox={
             "style": "carto-positron",
             "zoom": 11,
