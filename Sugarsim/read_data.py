@@ -1,11 +1,12 @@
-#%%
 import numpy as np
 import pandas as pd
 import os
 import json
 from shapely.geometry import Point, shape 
 import warnings
+import geopandas as gpd
 
+# to supress runtime warning
 warnings.simplefilter(action='ignore', category=pd.errors.PerformanceWarning)
 
 # set display options. Not imperative for exectution
@@ -15,10 +16,12 @@ pd.set_option('expand_frame_repr', False)
 pd.set_option('display.width', 10000)
 
 
-"""
-Global helper function to read pands dataframes or return relpaths to datafiles
-"""
 def read_dataframe(file_name, retval="df"):
+    """
+    Type:         Global helper function 
+    Description:  save way to create and return pandas dataframes or relative paths to datafiles
+    Used in:      globally
+    """
     # create path to rawdata file
     current_directory = os.path.dirname(os.path.abspath(__file__))
     parent_directory = os.path.dirname(current_directory)
@@ -45,12 +48,11 @@ def read_dataframe(file_name, retval="df"):
        raise ValueError('The arg "retval" in read_dtaframe is invalid (use df or file)')
     
 
-
 def create_random_coor(N):
   """
-  Helper function to generate N random coordinate in the study area
-  used to create village and markets at random locations
-  used in [class] Sugarscape 
+  Type:         local helper function to generate N random coordinate in the study area
+  Description:  generates N random coordintes in the study area 
+  Used in:      [class] Sugarscepe to create village and markets at random locations
   """
   # Load GeoJSON file containing sectors
   file_path = read_dataframe("filtered_ken.json", retval="file")
@@ -85,12 +87,14 @@ def create_random_coor(N):
   return list(zip(lat, lon)), county
 
 
-"""
-Function to create a datafrmae based on the Egger dataset
-Used in model class to instantiate agents with the characteristics in the data frame
-Returns a dataframe with ["id", "lon", "lat", "county"] + [cols_used]
-"""
 def create_agent_data():
+    
+    """
+    Type:         Function 
+    Description:  Creates a pandas datafrmae based on the Egger dataset
+                  Returns a dataframe with ["id", "lon", "lat", "county"] + [cols_used]
+    Used in:      [class] Sugarscape to instantiate agents with the characteristics in the data frame
+    """
     # load household datasets
     df_hh = read_dataframe("GE_HHLevel_ECMA.dta", "df")
     df_hh = df_hh.loc[:, ["p3_totincome", "own_land_acres"]]
@@ -110,12 +114,31 @@ def create_agent_data():
     
     return df_hh, df_vl
 
- 
+
+def create_geojson(exectute = False):
+  """
+  Type: Helper function
+  Description: creates a filtered verion of the geodata
+  Used in: [file] visualization.py
+  """
+  if exectute == False:
+    return
+
+  else:
+    # Load the GeoJSON data 
+    file_name = read_dataframe("ken.json", retval="file")
+    gdf = gpd.read_file(file_name)
+
+    # Extract the three subcounties (Alego, Ugunja and Ukwala) where the experiment took place
+    county_list = ['CentralAlego', 'NorthAlego', 'SouthEastAlego', 'WestAlego', 'SiayaTownship', 'Ugunja', 'Ukwala' ]
+    filtered_gdf = gdf[gdf['NAME_3'].isin(county_list)]
+
+    # Save the filtered GeoJSON to a new file
+    filtered_gdf.to_file('../data/filtered_ken.json', driver='GeoJSON')
+
+  return 
    
 
 
 
 
-
-
-# %%

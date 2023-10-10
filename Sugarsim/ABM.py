@@ -1,5 +1,6 @@
 from typing import Any
 import mesa
+from mesa.model import Model
 import numpy as np
 import math
 import pandas as pd
@@ -8,44 +9,90 @@ import networkx as nx
 import random
 from read_data import create_agent_data
 
+"""
+@TODO preliminary: make this an aggricultural firm later
+for now produces an output each time-step 
+"""
+class Land(mesa.Agent):
+  def __init__(self, unique_id, model, size, max_output):
+    super().__init__(unique_id, model)
+    self.id = unique_id
+    self.size = size
+    self.max_output = max_output
+    self.output = np.random.uniform(1, 10)
+  
+  def step(self):
+     """
+     Type:        Method
+     Description: Add one unit of output per ha per step until max_output is reached
+     """
+     # land generates output
+     self.output = min([self.max_output, self.output + 1])
+    
 
 class Agent(mesa.Agent): 
   """
-  Agent: 
-  - has a metabolism
-  
-  """
-  def __init__(self, unique_id, model, village, income, land):
+  Type:         Mesa Agent Class
+  Description:  Main entetdy of the simulation 
+  """ 
+  def __init__(self, unique_id, model, village, income, land_size):
     super().__init__(unique_id, model)
-    self.id  = unique_id
+    # initialize geo-related characteristics
     self.village = village
     self.county = self.village.county 
-
-    # pos is a tuple of shape (lat, lon) as used for continuous_grid in mesa
-    # it is randomly clustered around the village the agent belongs to
-    self.pos = (self.village.pos[0] + np.random.uniform(-0.0001, 0.0001), self.village.pos[1] + np.random.uniform(-0.0001, 0.00chec01))
+    self.pos = (self.village.pos[0] + np.random.uniform(-0.0001, 0.0001), # pos is a tuple of shape (lat, lon) as used for continuous_grid in mesa
+                self.village.pos[1] + np.random.uniform(-0.0001, 0.0001)) # it is randomly clustered around the village the agent belongs to
+    
+    # initialize other characteristics
     self.income = income
-    self.land = land
 
+    # create a land instance for the agent depending on the agents
+    self.land = Land(f"l_{self.unique_id}", model, land_size, max_output=500) # pass agent_id as unique_id of the land to identify ownership
+    self.model.schedule.add(self.land)
+
+    
   def __repr__(self):
-        return f'Agent: {self.id} at coordinates: {self.pos} in county {self.county}'
+        return f'Agent: {self.unique_id} at coordinates: {self.pos} in county {self.county}'
 
 
 class Village(mesa.Agent):
+    """
+    Type:         Mesa Agent Class
+    Description:  Phisical location of agents. 
+                  level at which spillovers are determined
+    """
     def __init__(self, unique_id, model, pos, county, population):
       super().__init__(unique_id, model)
       self.pos = pos
       self.county = county
-      self.id  = unique_id
       self.population = population
 
-    def __repr__(self) -> str:
-       return f'Villag: {self.id} at coordinates {self.pos} in county {self.county}'
+    def __repr__(self):
+       return f'Village: {self.id} at coordinates {self.pos} in county {self.county}'
 
+
+class Market(mesa.Agent):
+    """
+    Type:         Mesa Agent Class
+    Description:  Entity were phisical transactions take place
+    Used in: 
+    """
+    def __init__(self, unique_id, model, pos, county, price):
+      super().__init__(unique_id, model)
+      self.pos = pos
+      self.county = county
+      self.price = price
+      self.people = []
+
+    def __repr__(self):
+       return f'Market: {self.id} at coordinates {self.pos} in county {self.county}'
 
 
 class Sugarscepe(mesa.Model):
-
+  """
+  Type:         Mesa Model Class
+  Description:  Main Class for the simulation
+  """
   def __init__(self, min_lat=-0.05 , max_lat=0.25, min_lon=34.00, max_lon=34.5, N=25):
     # confine the geographic space of the grid to the study area
     self.x_min = min_lat
@@ -58,16 +105,19 @@ class Sugarscepe(mesa.Model):
     self.N = N
 
     # initialize scheduler
-    self.schedule = mesa.time.RandomActivation(self)
+    self.schedule = mesa.time.RandomActivationByType(self)
 
+    # add a datacollector 
+    self.datacollector = []
+    
     # load the dataset used to initialize the village, agent instances and store it 
     self.df_hh, self.df_vl = create_agent_data()
 
-    # create a list of villages 
-    village_list = [Village(row.id, self, row.pos, row.county, 0) for row in self.df_vl.itertuples()]
+    # create a list of villages based on the loaded df_vl
+    village_list = [Village(f"v_{row.id}", self, row.pos, row.county, 0) for row in self.df_vl.itertuples()]
 
-    # create a list of agents based on the loaded df 
-    agent_list = [Agent(row.id, self, random.choice(village_list), row.p3_totincome, row.own_land_acres ) for row in self.df_hh.itertuples()]
+    # create a list of agents based on the loaded df_hh
+    agent_list = [Agent(f"a_{row.id}", self, random.choice(village_list), row.p3_totincome, row.own_land_acres ) for row in self.df_hh.itertuples()]
     
     # agentize the grid with N agents
     for agent in agent_list:
@@ -77,28 +127,52 @@ class Sugarscepe(mesa.Model):
 
           # store grid-location in schedule
           self.schedule.add(agent) 
-    print("I was called")
+
+  def step(self):
+    """
+    Type:         Method
+    Description:  Model step function. Calls all entetie's step functions
+    """
+    # exectute step for each land entity
+    for land in self.schedule.agents_by_type[Land].values():
+      land.step()
 
 
-# @TODO generalize this
-  def get_data(self, object_type="hh"):
+    self.schedule.steps += 1 # for data collector to track the bumber of steps
+    self.collect_data()        
+  
+  def collect_data(self):
     """
-    Function to return the atribtues of all agents as df 
-    -coordinates
-    -income
-    -age
-    -county where positioned
+    Type:         Method 
+    Description:  Stores all agent-level data generated in a step as a pandas df 
     """
-    # make this one line
-    agent_data = [(agent.id, agent.village.id, agent.pos[0], agent.pos[1], agent.income, agent.land ) for agent in self.schedule.agents]
+    # collect the agent data for the current step
+    step = self.schedule.steps
+    agent_data = [(step, agent.unique_id, agent.village.unique_id, agent.pos[0], agent.pos[1], agent.income, agent.land.output ) for agent in self.schedule.agents_by_type[Agent].values()]
 
     # Create a Pandas DataFrame from the comprehension
-    df = pd.DataFrame(agent_data, columns=['id', 'village_id', 'lat', 'lon', "income", "land"])
-    return df
+    df_new = pd.DataFrame(agent_data, columns=['step','id', 'village_id', 'lat', 'lon', "income", "output"])
+
+    # add dataframe of current step to the list 
+    self.datacollector.append(df_new)
+
+  def get_data(self):
+    """
+    Type:        Method
+    Description: Concatenate all collected data into a single DataFrame
+    """
+    # Concatenate the list of dataframes
+    stacked_df = pd.concat(self.datacollector, axis=0)
+
+    # Reset the index
+    stacked_df.reset_index(drop=True, inplace=True)
+    return stacked_df
 
 
-def run_simulation():
+def run_simulation(steps = 5):
   model = Sugarscepe(N=500)
-  model.get_data()
+
+  for i in range(steps):
+     model.step()
   
   return model
