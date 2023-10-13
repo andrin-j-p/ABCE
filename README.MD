@@ -1,7 +1,8 @@
 # ABCE
-run code from console for imports to be resolved properly
+run code from console 
+for imports to be resolved properly run it from the top-level directory
 ````
-python -m main
+python -m Sugarsim.visualize
 ````
 
 GIT

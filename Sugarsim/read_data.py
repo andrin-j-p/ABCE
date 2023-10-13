@@ -1,3 +1,4 @@
+#%%
 import numpy as np
 import pandas as pd
 import os
@@ -97,13 +98,16 @@ def create_agent_data():
     """
     # load household datasets
     df_hh = read_dataframe("GE_HHLevel_ECMA.dta", "df")
-    df_hh = df_hh.loc[:, ["p3_totincome", "own_land_acres"]]
+    df_hh = df_hh.loc[:, ["hhid_key","village_code", "p3_totincome", "own_land_acres", "treat", "s12_q1_cerealsamt_12mth"]]
 
     #load village data
     df_vl = read_dataframe("GE_VillageLevel_ECMA.dta", "df")
 
+    # load market data
+    df_mk = read_dataframe("GE_MarketData_Panel_ProductLevel_ECMA.dta", "df")
+     
     # add an index to each dataset and set it as the first column
-    for df in [df_hh, df_vl]: 
+    for df in [df_hh, df_vl, df_mk]: 
       object_idx = pd.Series(np.arange(0, df.shape[0]))
       df.insert(0, 'id', object_idx)
 
@@ -111,8 +115,13 @@ def create_agent_data():
     vil_pos, county = create_random_coor(653)
     df_vl["pos"] = (vil_pos)
     df_vl["county"] = county  
+
+    # add id of closest market to df_vl
+    nrst_mk = read_dataframe("Village_NearestMkt_PUBLIC.dta", "df")
+    df_vl = pd.merge(df_vl, nrst_mk, on="village_code")
+
     
-    return df_hh, df_vl
+    return df_hh, df_vl, df_mk
 
 
 def create_geojson(exectute = False):
@@ -142,3 +151,4 @@ def create_geojson(exectute = False):
 
 
 
+# %%
