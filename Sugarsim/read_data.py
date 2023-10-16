@@ -36,10 +36,10 @@ def read_dataframe(file_name, retval="df"):
         return df
       
       except FileNotFoundError:
-        print(" A File not found error occured in open_file.")
+        print(f"A File not found error occured in open_file when opening {file_name}.")
 
       except Exception as e:
-        print("An unexpected error occurred in open_file:", e)
+        print(f"An unexpected error occurred in open_file when opening {file_name}", e)
     
     # if the filename ought to be returned
     elif retval=="file":
@@ -87,29 +87,52 @@ def create_random_coor(N):
 
   return list(zip(lat, lon)), county
 
+def get_average_land_price(df):
+
+   return average_land_price_per_ha
 
 def create_agent_data():
     
     """
     Type:         Function 
-    Description:  Creates a pandas datafrmae based on the Egger dataset
+    Description:  Creates a pandas datafrmae based on the Egger dataset 
+                  Does basic data preprocessing
                   Returns a dataframe with ["id", "lon", "lat", "county"] + [cols_used]
     Used in:      [class] Sugarscape to instantiate agents with the characteristics in the data frame
     """
+
+    ## HH Data
+
     # load household datasets
     df_hh = read_dataframe("GE_HHLevel_ECMA.dta", "df")
-    df_hh = df_hh.loc[:, ["hhid_key","village_code", "p3_totincome", "own_land_acres", "treat", "s12_q1_cerealsamt_12mth"]]
+    df_hh_assets = read_dataframe("GE_HH-BL_assets.dta", "df")
+    #df_hh_income = read_dataframe("GE_HH-BL_income_revenue", "df")
+
+    # selcet the variables of interest
+    df_hh = df_hh.loc[:, ["hhid_key", "village_code", "p3_totincome", "own_land_acres", "landprice_BL", "landprice", "treat", "s12_q1_cerealsamt_12mth"]]
+    df_hh_assets = df_hh_assets.loc[:, ["hhid_key","h1_1_livestock", "h1_2_agtools", "h1_11_landvalue", "h1_12_loans"]]
+    # combine all hh data into one df
+    df_hh = df_hh.merge(df_hh_assets, on='hhid_key')
+
+    # replace NANs in own_land_acres with zero
+    df_hh["own_land_acres"].fillna(0, inplace=True)
+
+    # replace NANs in h1_11_landvalue with an estimate based on land value and land owned
+    df_hh['h1_11_landvalue'] = np.where(df_hh['h1_11_landvalue'].isnull(),df_hh['landprice_BL'] * df_hh['own_land_acres'],df_hh['h1_11_landvalue'])    
+    
+    #rows_with_nan = df_hh[df_hh[["p3_totincome","own_land_acres","h1_11_landvalue","h1_2_agtools", "h1_1_livestock", "h1_12_loans"]].isna().any(axis=1)]
+    #print(rows_with_nan)
+
+    ## Market Data
+    
+    # load market data
+    df_mk = read_dataframe("GE_MarketData_Panel_ProductLevel_ECMA.dta", "df")
+
+    
+    ## Village Data 
 
     #load village data
     df_vl = read_dataframe("GE_VillageLevel_ECMA.dta", "df")
-
-    # load market data
-    df_mk = read_dataframe("GE_MarketData_Panel_ProductLevel_ECMA.dta", "df")
-     
-    # add an index to each dataset and set it as the first column
-    for df in [df_hh, df_vl, df_mk]: 
-      object_idx = pd.Series(np.arange(0, df.shape[0]))
-      df.insert(0, 'id', object_idx)
 
     # for villages add randomly created geo-data
     vil_pos, county = create_random_coor(653)
@@ -120,7 +143,6 @@ def create_agent_data():
     nrst_mk = read_dataframe("Village_NearestMkt_PUBLIC.dta", "df")
     df_vl = pd.merge(df_vl, nrst_mk, on="village_code")
 
-    
     return df_hh, df_vl, df_mk
 
 
@@ -146,9 +168,3 @@ def create_geojson(exectute = False):
     filtered_gdf.to_file('../data/filtered_ken.json', driver='GeoJSON')
 
   return 
-   
-
-
-
-
-# %%
