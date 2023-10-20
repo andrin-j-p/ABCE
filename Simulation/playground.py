@@ -2,7 +2,8 @@
 import pandas as pd
 import read_data
 import networkx as nx
-
+import statsmodels.api as sm
+from read_data import read_dataframe
 #%%
 # set display options. Not imperative for exectution
 pd.set_option('display.max_columns', 10)
@@ -11,9 +12,9 @@ pd.set_option('expand_frame_repr', False)
 pd.set_option('display.width', 10000)
 
 
-itr = pd.read_stata('../data/GE_HH-BL_assets.dta', iterator=True)
+itr = pd.read_stata('../data/GE_Enterprise_ECMA.dta', iterator=True)
 dct = itr.variable_labels()
-f = open("var_des_assets_BL.txt", "w")
+f = open("var_des_ent_ECMA.txt", "w")
 f.write("{\n")
 for k in dct.keys():
     f.write("'{}':'{}'\n".format(k, dct[k]))
@@ -21,7 +22,6 @@ f.write("}")
 f.close()
 
 # %%
-import statsmodels.api as sm
 df, _, _= read_data.create_agent_data()
 
 # Define independent (predictor) variables and the dependent (response) variable
@@ -36,5 +36,14 @@ model = sm.OLS(y, X).fit()
 
 # Print the summary statistics
 print(model.summary())
+
+# %%
+df_revenue = read_dataframe("../data/GE_HH-BL_income_revenue.dta", "df")
+print(len(df_revenue.loc[df_revenue["selfemp"] == 1.0]))
+print(len(df_revenue['selfemp']))
+
+
+
+
 
 # %%

@@ -9,6 +9,7 @@ from dash import dcc, html, Input, Output
 import ABM
 from read_data import read_dataframe, create_geojson
 import plotly.graph_objects as go
+np.random.seed(1)
 
 # @TODO
 # add selection widget for village in graph plot
@@ -16,6 +17,7 @@ import plotly.graph_objects as go
 # create sankey plot with trade volume (how useful?)
 # only run model when update on step number
 # add more info on node hover
+# add 3D plot
 
 def create_circle_coordinates(N, radius):
     """
@@ -25,9 +27,11 @@ def create_circle_coordinates(N, radius):
     """
     assert N > 1
 
+    # calculate angle between two elements
     angle_increment = 2 * math.pi / N
     coordinates = []
 
+    # create N coordinates around the circle
     for i in range(N):
         angle = i * angle_increment
         x = radius * math.cos(angle)
@@ -68,11 +72,10 @@ create_geojson(exectute=False)
 file_name = read_dataframe("filtered_ken.json", retval="file")
 polygons = json.load(open(file_name, "r"))
 
-# Get the agent information from the simulation
-#model = ABM.run_simulation()
-#df = model.get_data()
+# Instantiate the model
+model = ABM.Sugarscepe()
 
-# define app layout
+# define app layout see https://www.youtube.com/watch?v=hSPmj7mK6ng&t=1187s
 app.layout = html.Div([
     # Title
     html.H1("ABCE", style={"textAlign":"center"}),
@@ -118,14 +121,14 @@ def update_graph(option_slctd):
     container = f"Number of steps: {option_slctd}"
 
     # update number of agents to be displayed
-    model = ABM.run_simulation(option_slctd)
-    dff = model.get_data()
-    dff = dff[:]
+    model.run_simulation(option_slctd)
+    dff_hh, dff_fm, dff_md = model.get_data()
+    dff_hh = dff_hh[:]
 
     ## Create Scatter Mapbox
     
     # creates the scatter map and superimposes the county borders where the experiment took place
-    fig1 = px.scatter_mapbox(dff, lat="lat", lon="lon", color="income", size="money", animation_frame="step",
+    fig1 = px.scatter_mapbox(dff_hh, lat="lat", lon="lon", color="income", size="money", animation_frame="step",
                   animation_group="unique_id", color_continuous_scale=px.colors.cyclical.IceFire, height=1000, size_max=20).update_layout(
         # superimpose the boundries of the study area
         mapbox={
@@ -163,7 +166,7 @@ def update_graph(option_slctd):
     G.add_nodes_from(node_positions.keys())
     
     # for all agents, add an edges for each of its trading partners
-    for row in dff[dff['step'] == option_slctd-1].itertuples():
+    for row in dff_hh[dff_hh['step'] == option_slctd-1].itertuples():
         for dealer in row.best_dealers:
             G.add_edge(row.unique_id, dealer.unique_id)
 
@@ -172,7 +175,7 @@ def update_graph(option_slctd):
     agents_slctd = [agent.unique_id for agent in agents_lst if agent.village.unique_id == village]
     G = create_subgraph(G, agents_slctd)
     
-    # edges to be displayed in the plot
+    # edges to be displayed in the plot see https://plotly.com/python/network-graphs/
     edge_x = []
     edge_y = []
     for edge in G.edges():

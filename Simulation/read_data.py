@@ -6,6 +6,11 @@ import json
 from shapely.geometry import Point, shape 
 import warnings
 import geopandas as gpd
+np.random.seed(1)
+
+#@TODO only take columns actually needed in ABM
+#      replace '' and "" consistent
+# add dct as self?? like in Test.py mock model
 
 # to supress runtime warning
 warnings.simplefilter(action='ignore', category=pd.errors.PerformanceWarning)
@@ -87,21 +92,16 @@ def create_random_coor(N):
 
   return list(zip(lat, lon)), county
 
-def get_average_land_price(df):
-
-   return average_land_price_per_ha
-
+   
 def create_agent_data():
     
     """
     Type:         Function 
-    Description:  Creates a pandas datafrmae based on the Egger dataset 
-                  Does basic data preprocessing
-                  Returns a dataframe with ["id", "lon", "lat", "county"] + [cols_used]
+    Description:  Does basic data preprocessing and creates a pandas datafrmae based on the Egger dataset 
     Used in:      [class] Sugarscape to instantiate agents with the characteristics in the data frame
     """
 
-    ## HH Data
+### HH Data
 
     # load household datasets
     df_hh = read_dataframe("GE_HHLevel_ECMA.dta", "df")
@@ -123,13 +123,12 @@ def create_agent_data():
     #rows_with_nan = df_hh[df_hh[["p3_totincome","own_land_acres","h1_11_landvalue","h1_2_agtools", "h1_1_livestock", "h1_12_loans"]].isna().any(axis=1)]
     #print(rows_with_nan)
 
-    ## Market Data
+### Market Data
     
     # load market data
     df_mk = read_dataframe("GE_MarketData_Panel_ProductLevel_ECMA.dta", "df")
 
-    
-    ## Village Data 
+### Village Data 
 
     #load village data
     df_vl = read_dataframe("GE_VillageLevel_ECMA.dta", "df")
@@ -143,7 +142,18 @@ def create_agent_data():
     nrst_mk = read_dataframe("Village_NearestMkt_PUBLIC.dta", "df")
     df_vl = pd.merge(df_vl, nrst_mk, on="village_code")
 
-    return df_hh, df_vl, df_mk
+### Firm Data
+
+    df_fm = read_dataframe("GE_Enterprise_ECMA.dta", "df")
+    # drop enterprises with no matching owner (negligible; see Egger whole apdx)
+    df_fm = df_fm[df_fm['hhid_key'] != '']
+
+    # replace missing values with median 
+    for col in ['rev_year', 'prof_year', 'owner_education']:
+      median = df_fm[col].median()
+      df_fm[col].fillna(median, inplace=True) 
+
+    return df_hh, df_fm, df_vl, df_mk
 
 
 def create_geojson(exectute = False):
@@ -168,3 +178,6 @@ def create_geojson(exectute = False):
     filtered_gdf.to_file('../data/filtered_ken.json', driver='GeoJSON')
 
   return 
+
+
+create_agent_data()
