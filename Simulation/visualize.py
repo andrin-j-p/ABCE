@@ -85,10 +85,10 @@ app.layout = html.Div([
                  options=[
                   {"label":10, "value":10},
                   {"label":100, "value":100},
-                  {"label":1000, "value":1000}
+                  {"label":365, "value":365}
                   ],
                   multi=False,
-                  value=10,
+                  value=100,
                   style={'width':'40%'}
                 ),
 
@@ -96,7 +96,15 @@ app.layout = html.Div([
     html.Br(),
 
     dcc.Graph(id='ABM_map', figure={}),
-    dcc.Graph(id='ABM_graph', figure={})
+    dcc.Graph(id='ABM_graph', figure={}),
+
+    html.Div([
+    #scatters
+    dcc.Graph(id='ABM_scatter1', figure={}),
+    dcc.Graph(id='ABM_scatter2', figure={}),
+    dcc.Graph(id='ABM_scatter3', figure={}),
+
+    ], style={'display': 'flex', 'flex-direction': 'row'})
   ]
 )
 
@@ -112,6 +120,9 @@ Comment:     Two outputs: one goes into 'ABM_map' one into 'output' container.
     [Output(component_id='output_container', component_property='children'),
      Output(component_id='ABM_map', component_property='figure'),
      Output(component_id='ABM_graph', component_property='figure')],
+     Output(component_id='ABM_scatter1', component_property='figure'),
+     Output(component_id='ABM_scatter2', component_property='figure'),
+     Output(component_id='ABM_scatter3', component_property='figure'),
      [Input(component_id='slct_range', component_property='value')]
 )
 
@@ -122,14 +133,19 @@ def update_graph(option_slctd):
 
     # update number of agents to be displayed
     model.run_simulation(option_slctd)
-    dff_hh, dff_fm, dff_md = model.get_data()
-    dff_hh = dff_hh[:]
+    df_hh, df_fm, df_md= model.datacollector.get_data()
+
+    # Create copies of the dataframes
+    dff_hh, dff_fm, dff_md = df_hh[:], df_fm[:], df_md[:]
 
     ## Create Scatter Mapbox
     
     # creates the scatter map and superimposes the county borders where the experiment took place
-    fig1 = px.scatter_mapbox(dff_hh, lat="lat", lon="lon", color="income", size="money", animation_frame="step",
-                  animation_group="unique_id", color_continuous_scale=px.colors.cyclical.IceFire, height=1000, size_max=20).update_layout(
+    fig1 = px.scatter_mapbox(dff_hh, lat="lat", lon="lon", color="money", size="money", animation_frame="step", animation_group="unique_id", 
+                             custom_data=[], color_continuous_scale=px.colors.cyclical.IceFire, height=1000, size_max=20, 
+                             hover_data=['village_id', 'income'])
+                         
+    fig1.update_layout(
         # superimpose the boundries of the study area
         mapbox={
             "style": "carto-positron",
@@ -175,7 +191,7 @@ def update_graph(option_slctd):
     agents_slctd = [agent.unique_id for agent in agents_lst if agent.village.unique_id == village]
     G = create_subgraph(G, agents_slctd)
     
-    # edges to be displayed in the plot see https://plotly.com/python/network-graphs/
+    # create edges to be displayed (see https://plotly.com/python/network-graphs/)
     edge_x = []
     edge_y = []
     for edge in G.edges():
@@ -194,11 +210,12 @@ def update_graph(option_slctd):
         hoverinfo='none', #distance btw. agents
         mode='lines')
 
+    # create nodes to be displayed 
     node_x = []
     node_y = []
     for node in G.nodes():
-        x, y = G.nodes[node]['pos']
-        node_x.append(x)
+        price, y = G.nodes[node]['pos']
+        node_x.append(price)
         node_y.append(y)
 
     node_trace = go.Scatter(
@@ -228,6 +245,7 @@ def update_graph(option_slctd):
     node_trace.marker.color = node_adjacencies
     node_trace.text = node_text
 
+    # create the graph figure
     fig2 = go.Figure(data=[edge_trace, node_trace],
              layout=go.Layout(
                 width=1000,
@@ -241,11 +259,47 @@ def update_graph(option_slctd):
                 yaxis=dict(showgrid=False, zeroline=False, showticklabels=False))
                 )
     
-    
     ## Create Sankey Plot
 
+    ## Create Scatter Plots
+    x = [i for i in range(option_slctd)]
 
-    return container, fig1, fig2
+    # Get average daily price
+    y = dff_md['average_price']
+
+    # Create figure object
+    fig3 = go.Figure()
+    fig3.add_trace(go.Scatter(x=x, y=y,mode='markers'))
+    fig3.update_layout(title='Average Daily Price', xaxis_title = 'Step', yaxis_title = 'Price', 
+                       width=1000,    
+                       height=500,
+                       xaxis=dict(showgrid=False, zeroline=False, showticklabels=True),
+                       yaxis=dict(showgrid=False, zeroline=True, showticklabels=True))
+    
+    # get average inventory
+    y = dff_md['average_stock']
+
+    # create figure object
+    fig4 = go.Figure()
+    fig4.add_trace(go.Scatter(x=x, y=y,mode='markers'))
+    fig4.update_layout(title='Average Daily Inventory', xaxis_title = 'Step', yaxis_title = 'Inventory', 
+                       width=1000,    
+                       height=500,
+                       xaxis=dict(showgrid=False, zeroline=False, showticklabels=True),
+                       yaxis=dict(showgrid=False, zeroline=True, showticklabels=True))
+
+    # get average employment
+    y = dff_md['average_employees']
+    
+    fig5 = go.Figure()
+    fig5.add_trace(go.Scatter(x=x, y=y,mode='markers'))
+    fig5.update_layout(title='Average Daily employees', xaxis_title = 'Step', yaxis_title = 'employees', 
+                       width=1000,    
+                       height=500,
+                       xaxis=dict(showgrid=False, zeroline=False, showticklabels=True),
+                       yaxis=dict(showgrid=False, zeroline=True, showticklabels=True))
+
+    return container, fig1, fig2, fig3, fig4, fig5
 
 
 if __name__ =='__main__':

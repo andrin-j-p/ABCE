@@ -6,7 +6,6 @@ import json
 from shapely.geometry import Point, shape 
 import warnings
 import geopandas as gpd
-np.random.seed(1)
 
 #@TODO only take columns actually needed in ABM
 #      replace '' and "" consistent
@@ -15,7 +14,7 @@ np.random.seed(1)
 # to supress runtime warning
 warnings.simplefilter(action='ignore', category=pd.errors.PerformanceWarning)
 
-# set display options. Not imperative for exectution
+# @DELETE set display options. Not imperative for exectution
 pd.set_option('display.max_columns', 10)
 pd.set_option('display.max_rows', None)
 pd.set_option('expand_frame_repr', False)
@@ -58,7 +57,7 @@ def create_random_coor(N):
   """
   Type:         local helper function to generate N random coordinate in the study area
   Description:  generates N random coordintes in the study area 
-  Used in:      [class] Sugarscepe to create village and markets at random locations
+  Used in:      Sugarscepe.py to create village and markets at random locations
   """
   # Load GeoJSON file containing sectors
   file_path = read_dataframe("filtered_ken.json", retval="file")
@@ -98,7 +97,7 @@ def create_agent_data():
     """
     Type:         Function 
     Description:  Does basic data preprocessing and creates a pandas datafrmae based on the Egger dataset 
-    Used in:      [class] Sugarscape to instantiate agents with the characteristics in the data frame
+                  for class instantiation and output validation
     """
 
 ### HH Data
@@ -106,11 +105,11 @@ def create_agent_data():
     # load household datasets
     df_hh = read_dataframe("GE_HHLevel_ECMA.dta", "df")
     df_hh_assets = read_dataframe("GE_HH-BL_assets.dta", "df")
-    #df_hh_income = read_dataframe("GE_HH-BL_income_revenue", "df")
 
     # selcet the variables of interest
     df_hh = df_hh.loc[:, ["hhid_key", "village_code", "p3_totincome", "own_land_acres", "landprice_BL", "landprice", "treat", "s12_q1_cerealsamt_12mth"]]
     df_hh_assets = df_hh_assets.loc[:, ["hhid_key","h1_1_livestock", "h1_2_agtools", "h1_11_landvalue", "h1_12_loans"]]
+    
     # combine all hh data into one df
     df_hh = df_hh.merge(df_hh_assets, on='hhid_key')
 
@@ -120,9 +119,6 @@ def create_agent_data():
     # replace NANs in h1_11_landvalue with an estimate based on land value and land owned
     df_hh['h1_11_landvalue'] = np.where(df_hh['h1_11_landvalue'].isnull(),df_hh['landprice_BL'] * df_hh['own_land_acres'],df_hh['h1_11_landvalue'])    
     
-    #rows_with_nan = df_hh[df_hh[["p3_totincome","own_land_acres","h1_11_landvalue","h1_2_agtools", "h1_1_livestock", "h1_12_loans"]].isna().any(axis=1)]
-    #print(rows_with_nan)
-
 ### Market Data
     
     # load market data
@@ -130,7 +126,7 @@ def create_agent_data():
 
 ### Village Data 
 
-    #load village data
+    # Load village data
     df_vl = read_dataframe("GE_VillageLevel_ECMA.dta", "df")
 
     # for villages add randomly created geo-data
@@ -144,7 +140,9 @@ def create_agent_data():
 
 ### Firm Data
 
+    # Load firm data
     df_fm = read_dataframe("GE_Enterprise_ECMA.dta", "df")
+
     # drop enterprises with no matching owner (negligible; see Egger whole apdx)
     df_fm = df_fm[df_fm['hhid_key'] != '']
 
@@ -159,7 +157,8 @@ def create_agent_data():
 def create_geojson(exectute = False):
   """
   Type: Helper function
-  Description: creates a filtered verion of the geodata
+  Description: Creates a filtered verion of the geodata used to display study area boundries
+               only needs to be executed once
   Used in: [file] visualization.py
   """
   if exectute == False:
@@ -178,6 +177,3 @@ def create_geojson(exectute = False):
     filtered_gdf.to_file('../data/filtered_ken.json', driver='GeoJSON')
 
   return 
-
-
-create_agent_data()

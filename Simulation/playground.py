@@ -1,6 +1,7 @@
 #%%
 import pandas as pd
 import read_data
+import numpy as np
 import networkx as nx
 import statsmodels.api as sm
 from read_data import read_dataframe
@@ -46,4 +47,7 @@ print(len(df_revenue['selfemp']))
 
 
 
+# %%
+a = np.random.choice([], size=1)[0]
+print(a)
 # %%
