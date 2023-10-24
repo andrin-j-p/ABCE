@@ -10,7 +10,8 @@ import cProfile # move to Test.py
 import pstats   # move to Test.py
 
 # @TODO 
-# set a global seed
+# implement cobb douglas? demand
+# implement cobb douglas? production function 
 
 class Firm(mesa.Agent):
   """
@@ -415,7 +416,7 @@ class Sugarscepe(mesa.Model):
       self.step()
     print("\n")
 
-def run_simulation(steps = 300):
+def run_simulation(steps = 150):
   start = timeit.default_timer()
 
   model = Sugarscepe()

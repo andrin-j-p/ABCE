@@ -9,7 +9,6 @@ from dash import dcc, html, Input, Output
 import ABM
 from read_data import read_dataframe, create_geojson
 import plotly.graph_objects as go
-np.random.seed(1)
 
 # @TODO
 # add selection widget for village in graph plot

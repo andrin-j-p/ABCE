@@ -1,3 +1,13 @@
-pandas
-numpy
 mesa
+pandas
+numpy 
+matplotlib 
+networkx 
+json
+shapely 
+warnings
+plotly
+dash
+math
+dash
+os
