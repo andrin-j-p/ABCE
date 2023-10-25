@@ -9,7 +9,7 @@ from dash import dcc, html, Input, Output
 import ABM
 from read_data import read_dataframe, create_geojson
 import plotly.graph_objects as go
-
+np.random.seed(0)
 # @TODO
 # add selection widget for village in graph plot
 # draw village selected in map
@@ -82,12 +82,12 @@ app.layout = html.Div([
     # Dropdown to select number of steps in the simulation
     dcc.Dropdown(id="slct_range",
                  options=[
-                  {"label":10, "value":10},
                   {"label":100, "value":100},
-                  {"label":365, "value":365}
+                  {"label":200, "value":200},
+                  {"label":300, "value":300}
                   ],
                   multi=False,
-                  value=100,
+                  value=200,
                   style={'width':'40%'}
                 ),
 
@@ -132,18 +132,21 @@ def update_graph(option_slctd):
 
     # update number of agents to be displayed
     model.run_simulation(option_slctd)
-    df_hh, df_fm, df_md= model.datacollector.get_data()
+    df_hh, df_fm, df_md, _= model.datacollector.get_data()
+    print("Loading visualization...")
 
     # Create copies of the dataframes
     dff_hh, dff_fm, dff_md = df_hh[:], df_fm[:], df_md[:]
+    dff_hh['income'] = dff_hh['income'].apply(lambda x: 0 if x < 0 else x)
 
     ## Create Scatter Mapbox
     
     # creates the scatter map and superimposes the county borders where the experiment took place
-    fig1 = px.scatter_mapbox(dff_hh, lat="lat", lon="lon", color="money", size="money", animation_frame="step", animation_group="unique_id", 
+    fig1 = px.scatter_mapbox(dff_hh[:7000], lat="lat", lon="lon", color="money", size="income", animation_frame="step", animation_group="unique_id", 
                              custom_data=[], color_continuous_scale=px.colors.cyclical.IceFire, height=1000, size_max=20, 
                              hover_data=['village_id', 'income'])
-                         
+    fig1.update_traces(marker=dict(size=15))
+
     fig1.update_layout(
         # superimpose the boundries of the study area
         mapbox={

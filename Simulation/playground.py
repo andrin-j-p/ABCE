@@ -5,13 +5,13 @@ import numpy as np
 import networkx as nx
 import statsmodels.api as sm
 from read_data import read_dataframe
-#%%
+
 # set display options. Not imperative for exectution
 pd.set_option('display.max_columns', 10)
 pd.set_option('display.max_rows', None)
 pd.set_option('expand_frame_repr', False)
 pd.set_option('display.width', 10000)
-
+#%%
 
 itr = pd.read_stata('../data/GE_Enterprise_ECMA.dta', iterator=True)
 dct = itr.variable_labels()
@@ -45,9 +45,8 @@ print(len(df_revenue['selfemp']))
 
 
 
-
-
 # %%
-a = np.random.choice([], size=1)[0]
-print(a)
+df_hh, df_fm, df_md, df_td = read_data.create_agent_data()
+print(df_hh[df_hh['p3_totincome'] < 0])
+
 # %%

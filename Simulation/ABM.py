@@ -6,6 +6,8 @@ import networkx as nx
 from read_data import create_agent_data
 from data_collector import Datacollector
 import timeit
+import copy
+
 import cProfile # move to Test.py
 import pstats   # move to Test.py
 
@@ -18,7 +20,7 @@ class Firm(mesa.Agent):
   Type:        Mesa Agent Class
   Description: Implements firm entity
   """
-  # @Concept to reduce variable amount!!! resolve missing in datacollector
+  # @Concept to reduce variable amount!!! 
   def __init__(self, unique_id, model, market, village):
     super().__init__(unique_id, model)
     # firm properties
@@ -28,7 +30,7 @@ class Firm(mesa.Agent):
     self.village = village
     self.productivity = np.random.uniform(1, 2) # @Calibrate: main variable. To tune owner income i.e. self.money
     # price
-    self.price = np.random.uniform(1, 10) # price in current month
+    self.price = np.random.uniform(1, 10) # price in current month (initialized randomly)
     self.marginal_cost = 1 # @CALIBRATE: if necessary
     self.max_price = 100 #@ set to reasonable value
     self.theta = 0.5 # probability for price change
@@ -37,7 +39,7 @@ class Firm(mesa.Agent):
     # inventory 
     self.min_stock = 0 # 10% percent of last months sales @TODO perishable?
     self.max_stock = 0 # 150% percent of last months sales 
-    self.stock = 5
+    self.stock = 300000
     self.output = 0 # quantity produced this month
     self.sales = 0  # quantity sold this month
     # profit
@@ -74,7 +76,7 @@ class Firm(mesa.Agent):
     Execute:     Monthly 
     """
     # Output is a function of employees' and firms' productivity parameters
-    amount = self.productivity * sum(employee.productivity for employee in self.employees)
+    amount = self.productivity * (sum(employee.productivity for employee in self.employees) + self.owner.productivity)
     self.output += amount
     self.stock += amount
     self.money -= amount * self.marginal_cost
@@ -90,8 +92,9 @@ class Firm(mesa.Agent):
     # 2) if there is a worker available
     if self.stock < self.min_stock:
       try:
-        new_dealer = np.random.choice([hh for hh in self.village.population if hh.employer == None], size=1, replace=False)[0]
-        self.employees.append(new_dealer)
+        new_employee = np.random.choice([hh for hh in self.village.population if hh.employer == None], size=1, replace=False)[0]
+        new_employee.employer = self
+        self.employees.append(new_employee)
       except ValueError as e:
         self.model.datacollector.no_worker_found += 1
         return
@@ -112,11 +115,11 @@ class Firm(mesa.Agent):
     # Pay wages based on the employees productivity 
     for employee in self.employees:
       # productivity is observed imperfectly. Wages are thus fluctuating 10% above and below actual productivity
-      prod = employee.porductivity
-      wage = 3 #prod + np.random.uniform(prod -(prod * 10 /100), prod + (prod *10/100))
+      prod = employee.productivity
+      wage = prod + np.random.uniform(prod -(prod * 10 /100), prod + (prod *10/100))
       self.money -= wage
       employee.money += wage
-      employee.income += wage 
+      employee.income = wage 
 
     # Pay owner based on profits
     profit = 0.7 * self.money
@@ -162,19 +165,18 @@ class Agent(mesa.Agent):
     self.pos = (self.village.pos[0] + np.random.uniform(-0.0003, 0.0003), # pos is a tuple of shape (lat, lon) as used for continuous_grid in mesa
                 self.village.pos[1] + np.random.uniform(-0.0003, 0.0003)) # it is randomly clustered around the village the agent belongs to
     # initialize other hh characteristics
-    self.income = 2
-    self.porductivity = np.random.randint(1,8)
+    self.income = income
     self.firm = firm 
     self.employer = employer
     self.best_dealers = []
-    self.productivity = np.random.uniform(1,2) # @CALIBRATE: main calibration variable for self.money reg. to identify
+    self.productivity = income # @CALIBRATE: main calibration variable for self.money reg. to identify
     # initialize consumption related characteristics
     # @Extension: four categories:Food,Livestock, Non-Food Non-Durables, Durables, Temptation Goods
     # @Extension: distinguish between perishable and non-perishable good
     self.market_day = np.random.randint(0, 7) # day the agent goes to market. Note: bounds are included
     self.best_dealer_price = 1000 # agent remembers price of best dealer last week
-    self.money = 1000
-    self.demand = 0.5 * self.income # @TODO make dependent on hh size
+    self.money = 1000000 # for initial value estimate / retrive from data 
+    self.demand = 0.7 * self.income # @TODO make dependent on hh size
     self.consumption = 0 
 
   def find_dealer(self):
@@ -188,12 +190,12 @@ class Agent(mesa.Agent):
     potential_dealers = self.village.market.vendors
 
     # market needs at least three dealer on a given day to work
-    if len(potential_dealers) < 4:
+    if len(potential_dealers) < 5:
       return False
     
     # if the list of best dealers is empty try 3 'random dealers'
     if len(self.best_dealers) == 0:
-      self.best_dealers = list(np.random.choice(potential_dealers, size=3, replace=False))
+      self.best_dealers = list(np.random.choice(potential_dealers, size=4, replace=False))
 
     # if price of best dealer increased compared to last week try a new dealer at random @spite
     # only checked from the second week onwards when the self.best_dealer_price contains a value
@@ -213,9 +215,9 @@ class Agent(mesa.Agent):
       if dealer.stock >= self.demand:
         return dealer
     
-    for dealer in potential_dealers:
-      if dealer.stock >= self.demand:
-        return dealer
+    #for dealer in potential_dealers:
+    #  if dealer.stock >= self.demand:
+    #    return dealer
 
     self.model.datacollector.no_dealer_found += 1
 
@@ -241,7 +243,7 @@ class Agent(mesa.Agent):
     dealer.money += total_price 
     
     # save the transaction details in the model data collector
-    self.model.datacollector.td_data.append({"step": self.model.schedule.steps, "parties": (self.unique_id, dealer.owner), 
+    self.model.datacollector.td_data.append({"step": self.model.schedule.steps, "parties": (self.unique_id, dealer.owner.unique_id), 
                                              "price": price, "amount": self.demand, "volume": total_price})
 
   def step(self):
@@ -297,7 +299,7 @@ class Sugarscepe(mesa.Model):
   Type:         Mesa Model Class
   Description:  Main Class for the simulation
   """
-  def __init__(self, min_lat=-0.05 , max_lat=0.25, min_lon=34.00, max_lon=34.5, N=25):
+  def __init__(self, min_lat=-0.05 , max_lat=0.25, min_lon=34.00, max_lon=34.5, N=15000):
     # confine the geographic space of the grid to the study area
     self.x_min = min_lat
     self.x_max = max_lat
@@ -337,6 +339,17 @@ class Sugarscepe(mesa.Model):
                     firm=fm_dct.get(row.hhid_key, None), employer=fm_dct.get(row.hhid_key, None))
               for row in self.df_hh.itertuples()]
 
+    # create N additional, syntetic hh based on randomly chosen existing hhs
+    templates = np.random.choice(hh_lst, size=self.N, replace=True)
+    for i, hh in enumerate(templates):
+      new_instance = copy.copy(hh)
+      new_instance.unique_id = f"S{i}_{hh.unique_id}"
+      new_instance.firm = None
+      new_instance.employer = None
+      hh_lst.append(new_instance)
+      hh.pos = (hh.village.pos[0] + np.random.uniform(-0.0003, 0.0003), # pos is a tuple of shape (lat, lon) as used for continuous_grid in mesa
+                hh.village.pos[1] + np.random.uniform(-0.0003, 0.0003)) 
+
     # agentize the grid with hhs
     for hh in hh_lst:
       # place hh on grid and add it to schedule
@@ -345,7 +358,9 @@ class Sugarscepe(mesa.Model):
       # add firms to schedule if applicable
       # note: done here so only firms with owners in the GE_HHLevel_ECMA.dta dataset are added
       if hh.firm != None:
+        # add owner to firm
         hh.firm.owner = hh
+        # add firm to schedule
         self.schedule.add(hh.firm)
     
     # create an attribute for quick acess to all hh in the model
@@ -416,15 +431,19 @@ class Sugarscepe(mesa.Model):
       self.step()
     print("\n")
 
-def run_simulation(steps = 150):
+  def __repr__(self):
+    return f'N Households: {len(self.all_agents)} \nN Frims {len(self.all_firms)} \nN Villages {len(self.all_villages)}\nN Markets {len(self.all_markets)}'
+
+def run_simulation(steps = 400):
   start = timeit.default_timer()
 
   model = Sugarscepe()
   model.run_simulation(steps)
-  hh_data, fm_data, md_data = model.datacollector.get_data()
-  print(md_data[['step','average_stock', 'total_sales', 'unemployment_rate', 'average_income', 'average_price', 
-                 'trade_volume', 'demand_satisfied', 'no_worker_found', 'no_dealer_found']].head(steps))
-
+  print(model)
+  hh_data, fm_data, md_data, _ = model.datacollector.get_data()
+  print(md_data[['step','average_stock', 'unemployment_rate', 'average_income', 'average_price', 
+                'trade_volume', 'demand_satisfied', 'no_worker_found', 'no_dealer_found', 'output']].head(steps))
+  #print(hh_data[hh_data['step'] == 90][['step', 'income', 'owns_firm']].head(250))
   stop = timeit.default_timer()
   print('Time: ', stop - start)  
   return model
@@ -440,4 +459,6 @@ if __name__ == "__main__":
 
     # Sort and print the top N entries with the highest cumulative time
     #profile_stats.strip_dirs().sort_stats('cumulative').print_stats(20)
+
     run_simulation()
+    print('')

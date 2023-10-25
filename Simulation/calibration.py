@@ -14,7 +14,7 @@ class Calibrationmodel(ABM.Sugarscepe):
   def create_batch(self, batch_size):
       pass
       
-
+      
 
 
 # create iterable for automatic batching, sampling and shuffling
