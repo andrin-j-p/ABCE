@@ -8,7 +8,7 @@ import geopandas as gpd
 
 #@TODO only take columns actually needed in ABM
 #      replace '' and "" consistent
-# add dct as self?? like in Test.py mock model
+#      pickle this
 
 # to supress runtime warning
 warnings.simplefilter(action='ignore', category=pd.errors.PerformanceWarning)
@@ -155,10 +155,10 @@ def create_agent_data():
 
 def create_geojson(exectute = False):
   """
-  Type: Helper function
+  Type:        Helper function
   Description: Creates a filtered verion of the geodata used to display study area boundries
                only needs to be executed once
-  Used in: [file] visualization.py
+  Used in:     visualization.py
   """
   if exectute == False:
     return

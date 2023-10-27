@@ -47,7 +47,8 @@ class Datacollector():
     self.fm_data.append(df_fm_new)
     self.md_data.append(df_md_new)
 
-  def get_data(self):
+  # @TODO specify which frames to 
+  def get_data(self, frames = ['hh', 'fm', 'td', 'md']):
     """
     Type:        Datacollector Method
     Description: Concatenates all collected data into DataFrames for hh, fm and md
@@ -70,6 +71,7 @@ class Datacollector():
                 df_hh.loc[(df_hh.step==step) & (pd.isna(df_hh.owns_firm))]['income'].mean(),
                 df_td[df_td['step']==step]['price'].mean(), 
                 df_td[df_td['step']==step]['volume'].sum(),
+                # @TODO make this directly in collector to find fiv by zero
                 df_td[df_td['step']==step]['amount'].sum() / (df_hh[df_hh['step']==step]['demand'].sum()/7),
                 df_fm[df_fm['step']==step]['output'].sum())
                 for step in range(self.model.schedule.steps + 1)]

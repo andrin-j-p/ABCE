@@ -35,6 +35,8 @@ class Firm(mesa.Agent):
     self.max_price = 100 #@ set to reasonable value
     self.theta = 0.5 # probability for price change
     self.nu = 0.3 # rate for price change @Calibrate: if necessary 
+    self.phi_l = 0.1# phi_l * sales = minimal stock
+    self.phi_u = 10 # phi_u * slaes = max stock for 
     self.employees = [] 
     # inventory 
     self.min_stock = 0 # 10% percent of last months sales @TODO perishable?
@@ -141,8 +143,8 @@ class Firm(mesa.Agent):
 
       ## BEGINNING OF MONTH
       # set the min_stock to the sales of previous month
-      self.min_stock = self.sales * 0.1
-      self.max_stock = self.sales * 10
+      self.min_stock = self.sales * self.phi_l
+      self.max_stock = self.sales * self.phi_u
       # reset sales and output for this month to zero
       self.sales = 0
       self.output = 0
@@ -214,10 +216,6 @@ class Agent(mesa.Agent):
     for dealer in self.best_dealers:
       if dealer.stock >= self.demand:
         return dealer
-    
-    #for dealer in potential_dealers:
-    #  if dealer.stock >= self.demand:
-    #    return dealer
 
     self.model.datacollector.no_dealer_found += 1
 
@@ -287,7 +285,6 @@ class Market(mesa.Agent):
     self.vendors = None
     
   def step(self):
-     # reset the list of current costumers back to 0
      pass
   
   def __repr__(self):
@@ -339,7 +336,7 @@ class Sugarscepe(mesa.Model):
                     firm=fm_dct.get(row.hhid_key, None), employer=fm_dct.get(row.hhid_key, None))
               for row in self.df_hh.itertuples()]
 
-    # create N additional, syntetic hh based on randomly chosen existing hhs
+    # create N additional, syntetic hhs based on randomly chosen existing hhs
     templates = np.random.choice(hh_lst, size=self.N, replace=True)
     for i, hh in enumerate(templates):
       new_instance = copy.copy(hh)
@@ -376,7 +373,7 @@ class Sugarscepe(mesa.Model):
        # initialize vendors
        mk.vendors = [firm for firm in self.all_firms if firm.market == mk] 
 
-    # create an attribute for quick acess to all firms in the model 
+    # create an attribute for quick acess to all markets in the model 
     self.all_markets = self.schedule.agents_by_type[Market].values()  
 
     # agentize the grid with vls
@@ -386,7 +383,7 @@ class Sugarscepe(mesa.Model):
        # initialize population 
        vl.population = [hh for hh in self.all_agents if hh.village == vl]
     
-    # create an attribute for quick acess to all firms in the model 
+    # create an attribute for quick acess to all villages in the model 
     self.all_villages = self.schedule.agents_by_type[Village].values()  
 
   def randomize_agents(self, agent_type):
@@ -421,11 +418,16 @@ class Sugarscepe(mesa.Model):
       mk.step() # resets costumers list to []
 
     # for data collector to track the number of steps
+    self.datacollector.collect_data()
+
     self.schedule.steps += 1 
     # collect data
-    self.datacollector.collect_data()
   
-  def run_simulation(self, steps= 25):
+  def run_simulation(self, steps):
+    """
+    Type:        Method
+    Description: Runs the simulation for the specified number of steps
+    """
     for i in range(steps):
       print(f"\rSimulating step: {i + 1} ({round((i + 1)*100/steps, 0)}% complete)", end="", flush=True)
       self.step()
@@ -434,7 +436,8 @@ class Sugarscepe(mesa.Model):
   def __repr__(self):
     return f'N Households: {len(self.all_agents)} \nN Frims {len(self.all_firms)} \nN Villages {len(self.all_villages)}\nN Markets {len(self.all_markets)}'
 
-def run_simulation(steps = 400):
+
+def run_simulation(steps = 100):
   start = timeit.default_timer()
 
   model = Sugarscepe()
@@ -447,9 +450,6 @@ def run_simulation(steps = 400):
   stop = timeit.default_timer()
   print('Time: ', stop - start)  
   return model
-
-def batch_runner(steps = 2):
-   pass
 
 if __name__ == "__main__":
     #cProfile.run("run_simulation()", filename="../data/profile_output.txt", sort='cumulative')
