@@ -76,7 +76,7 @@ def create_dataset(m, steps=15, save=True):
   """
   # create a deep copy of the initial model state so model __init__ is only executed once
   simulation = Model()
-  with open('../data/simulation_initial_state.dill', 'wb') as file:
+  with open('../data/model_data/simulation_initial_state.dill', 'wb') as file:
     dill.dump(simulation, file)
 
   # @TODO change this ugly global variable thing
@@ -93,7 +93,7 @@ def create_dataset(m, steps=15, save=True):
     start = timeit.default_timer()
 
     # load a copy of the initial state of the simulation 
-    with open('../data/simulation_initial_state.dill', 'rb') as file:
+    with open('../data/model_data/simulation_initial_state.dill', 'rb') as file:
       sim_copy = dill.load(file)
 
     # Set the parameter values in the simulation copy
