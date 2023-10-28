@@ -87,3 +87,6 @@ To execute the unittests without printing anything to the console use the compli
 ````
 python -m Test -b
 ````
+
+
+python -m memory_profiler calibration

@@ -1,5 +1,6 @@
 import pandas as pd
 
+
 class Datacollector():
   """
   Type:        Helper Class 
@@ -60,7 +61,6 @@ class Datacollector():
     df_td = pd.DataFrame(self.td_data)
     df_md1 = pd.DataFrame(self.md_data)
 
-    #print(df_hh[df_hh['step'] == 25]['employer'])
     # Get summary statistics from the concatanated dataframes
     sm_data = [(step,  
                 df_fm[df_fm['step']==step]['output'].mean(),
@@ -72,7 +72,7 @@ class Datacollector():
                 df_td[df_td['step']==step]['price'].mean(), 
                 df_td[df_td['step']==step]['volume'].sum(),
                 # @TODO make this directly in collector to find fiv by zero
-                df_td[df_td['step']==step]['amount'].sum() / (df_hh[df_hh['step']==step]['demand'].sum()/7),
+                df_td[df_td['step']==step]['amount'].sum(), #/ (df_hh[df_hh['step']==step]['demand'].sum()/7),
                 df_fm[df_fm['step']==step]['output'].sum())
                 for step in range(self.model.schedule.steps + 1)]
     

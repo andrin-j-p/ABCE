@@ -1,12 +1,14 @@
-from ABM import run_simulation 
+#%%
+from tester import  run_model
+#from calibration import test
 import numpy as np
-import joblib
-
-np.random.seed(0) # enables global seed
+np.random.seed(0) # enable global seed
 
 
 def main():
-  run_simulation()
+  run_model(2)
+
+  print('')
 
   # Save the simulation object
   #joblib.dump(simulation, "simulation.pkl")
@@ -15,3 +17,5 @@ def main():
   #simulation = joblib.load("simulation.pkl")
 if __name__ == "__main__":
     main()
+
+# %%

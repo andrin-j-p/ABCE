@@ -5,11 +5,11 @@ import matplotlib as mpl
 import networkx as nx
 from read_data import create_agent_data
 from data_collector import Datacollector
-import timeit
+#import timeit
 import copy
 
-import cProfile # move to Test.py
-import pstats   # move to Test.py
+#import cProfile # move to Test.py
+#import pstats   # move to Test.py
 
 # @TODO 
 # implement cobb douglas? demand
@@ -297,6 +297,8 @@ class Sugarscepe(mesa.Model):
   Description:  Main Class for the simulation
   """
   def __init__(self, min_lat=-0.05 , max_lat=0.25, min_lon=34.00, max_lon=34.5, N=15000):
+    print('init was called')
+
     # confine the geographic space of the grid to the study area
     self.x_min = min_lat
     self.x_max = max_lat
@@ -437,8 +439,8 @@ class Sugarscepe(mesa.Model):
     return f'N Households: {len(self.all_agents)} \nN Frims {len(self.all_firms)} \nN Villages {len(self.all_villages)}\nN Markets {len(self.all_markets)}'
 
 
-def run_simulation(steps = 100):
-  start = timeit.default_timer()
+def run_simulation(steps = 25):
+  #start = timeit.default_timer()
 
   model = Sugarscepe()
   model.run_simulation(steps)
@@ -447,8 +449,8 @@ def run_simulation(steps = 100):
   print(md_data[['step','average_stock', 'unemployment_rate', 'average_income', 'average_price', 
                 'trade_volume', 'demand_satisfied', 'no_worker_found', 'no_dealer_found', 'output']].head(steps))
   #print(hh_data[hh_data['step'] == 90][['step', 'income', 'owns_firm']].head(250))
-  stop = timeit.default_timer()
-  print('Time: ', stop - start)  
+  #stop = timeit.default_timer()
+  #print('Time: ', stop - start)  
   return model
 
 if __name__ == "__main__":
@@ -459,6 +461,7 @@ if __name__ == "__main__":
 
     # Sort and print the top N entries with the highest cumulative time
     #profile_stats.strip_dirs().sort_stats('cumulative').print_stats(20)
+
 
     run_simulation()
     print('')

@@ -29,7 +29,7 @@ def read_dataframe(file_name, retval="df"):
     # create path to rawdata file
     current_directory = os.path.dirname(os.path.abspath(__file__))
     parent_directory = os.path.dirname(current_directory)
-    file = parent_directory + "/data/" + file_name
+    file = parent_directory + "/data/raw_data/" + file_name
 
     # if the dataframe ought to be returned
     if retval=="df":

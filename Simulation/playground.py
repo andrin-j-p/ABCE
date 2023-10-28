@@ -13,7 +13,7 @@ pd.set_option('expand_frame_repr', False)
 pd.set_option('display.width', 10000)
 #%%
 
-itr = pd.read_stata('../data/GE_Enterprise_ECMA.dta', iterator=True)
+itr = pd.read_stata('../data/var_description/GE_Enterprise_ECMA.dta', iterator=True)
 dct = itr.variable_labels()
 f = open("var_des_ent_ECMA.txt", "w")
 f.write("{\n")
@@ -39,7 +39,7 @@ model = sm.OLS(y, X).fit()
 print(model.summary())
 
 # %%
-df_revenue = read_dataframe("../data/GE_HH-BL_income_revenue.dta", "df")
+df_revenue = read_dataframe("../data/var_description/GE_HH-BL_income_revenue.dta", "df")
 print(len(df_revenue.loc[df_revenue["selfemp"] == 1.0]))
 print(len(df_revenue['selfemp']))
 
