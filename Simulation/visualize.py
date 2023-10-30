@@ -84,7 +84,7 @@ app.layout = html.Div([
                  options=[
                   {"label":100, "value":100},
                   {"label":200, "value":200},
-                  {"label":300, "value":300}
+                  {"label":400, "value":400}
                   ],
                   multi=False,
                   value=200,
@@ -102,6 +102,8 @@ app.layout = html.Div([
     dcc.Graph(id='ABM_scatter1', figure={}),
     dcc.Graph(id='ABM_scatter2', figure={}),
     dcc.Graph(id='ABM_scatter3', figure={}),
+    dcc.Graph(id='ABM_scatter4', figure={}),
+    dcc.Graph(id='ABM_scatter5', figure={}),
 
     ], style={'display': 'flex', 'flex-direction': 'row'})
   ]
@@ -122,6 +124,8 @@ Comment:     Two outputs: one goes into 'ABM_map' one into 'output' container.
      Output(component_id='ABM_scatter1', component_property='figure'),
      Output(component_id='ABM_scatter2', component_property='figure'),
      Output(component_id='ABM_scatter3', component_property='figure'),
+     Output(component_id='ABM_scatter4', component_property='figure'),
+     Output(component_id='ABM_scatter5', component_property='figure'),
      [Input(component_id='slct_range', component_property='value')]
 )
 
@@ -137,12 +141,14 @@ def update_graph(option_slctd):
 
     # Create copies of the dataframes
     dff_hh, dff_fm, dff_md = df_hh[:], df_fm[:], df_md[:]
+    # @ change: negative numbers cannot be put as size
     dff_hh['income'] = dff_hh['income'].apply(lambda x: 0 if x < 0 else x)
+    mapbox_data= dff_hh[dff_hh['step'] % 10 == 0]
 
     ## Create Scatter Mapbox
     
     # creates the scatter map and superimposes the county borders where the experiment took place
-    fig1 = px.scatter_mapbox(dff_hh[:7000], lat="lat", lon="lon", color="money", size="income", animation_frame="step", animation_group="unique_id", 
+    fig1 = px.scatter_mapbox(mapbox_data, lat="lat", lon="lon", color="money", size="income", animation_frame="step", animation_group="unique_id", 
                              custom_data=[], color_continuous_scale=px.colors.cyclical.IceFire, height=1000, size_max=20, 
                              hover_data=['village_id', 'income'])
     fig1.update_traces(marker=dict(size=15))
@@ -300,8 +306,30 @@ def update_graph(option_slctd):
                        height=500,
                        xaxis=dict(showgrid=False, zeroline=False, showticklabels=True),
                        yaxis=dict(showgrid=False, zeroline=True, showticklabels=True))
+    
+    # get sales 
+    y = dff_md['trade_volume']
+    
+    fig6 = go.Figure()
+    fig6.add_trace(go.Scatter(x=x, y=y,mode='markers'))
+    fig6.update_layout(title='Daily Trade Volume', xaxis_title = 'Step', yaxis_title = 'Amount', 
+                       width=1000,    
+                       height=500,
+                       xaxis=dict(showgrid=False, zeroline=False, showticklabels=True),
+                       yaxis=dict(showgrid=False, zeroline=True, showticklabels=True))
 
-    return container, fig1, fig2, fig3, fig4, fig5
+    # get sales 
+    y = dff_md['average_income']
+    
+    fig7 = go.Figure()
+    fig7.add_trace(go.Scatter(x=x, y=y,mode='markers'))
+    fig7.update_layout(title='Average Income', xaxis_title = 'Step', yaxis_title = 'Income', 
+                       width=1000,    
+                       height=500,
+                       xaxis=dict(showgrid=False, zeroline=False, showticklabels=True),
+                       yaxis=dict(showgrid=False, zeroline=True, showticklabels=True))
+
+    return container, fig1, fig2, fig3, fig4, fig5, fig6, fig7
 
 
 if __name__ =='__main__':

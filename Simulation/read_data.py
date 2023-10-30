@@ -118,10 +118,14 @@ def create_agent_data():
     # replace NANs in h1_11_landvalue with an estimate based on land value and land owned
     df_hh['h1_11_landvalue'] = np.where(df_hh['h1_11_landvalue'].isnull(),df_hh['landprice_BL'] * df_hh['own_land_acres'],df_hh['h1_11_landvalue'])    
     
-### Market Data
+    # drop 3 agents with negative income and no firm 
+    df_hh  = df_hh.drop(df_hh[df_hh['hhid_key'].isin(['601010103003-144', '601020404002-039', '601050304006-038'])].index)
     
     # load market data
     df_mk = read_dataframe("GE_MarketData_Panel_ProductLevel_ECMA.dta", "df")
+
+    # drop 1 market (109) without firm and hh affiliation
+    df_mk = df_mk.drop(df_mk[df_mk['market_id'] ==109].index)
 
 ### Village Data 
 

@@ -15,6 +15,7 @@ class Datacollector():
 
     self.no_worker_found = 0
     self.no_dealer_found = 0
+    self.worker_fired = 0
 
   def collect_data(self):
     """
@@ -39,9 +40,10 @@ class Datacollector():
     df_fm_new = pd.DataFrame(firm_data, columns=['step', 'unique_id', 'stock', 'price', 'money', 'output', 'sales', 'revenue', 'employees'])
  
      # Create a Pandas Dataframe from model data and reset their values
-    df_md_new = {'step': step, 'no_worker_found': self.no_worker_found, 'no_dealer_found': self.no_dealer_found}
+    df_md_new = {'step': step, 'no_worker_found': self.no_worker_found, 'no_dealer_found': self.no_dealer_found, 'worker_fired': self.worker_fired}
     self.no_dealer_found = 0
     self.no_worker_found = 0
+    self.worker_fired = 0
 
     # add dataframe of current step to the list
     self.hh_data.append(df_hh_new)
@@ -68,7 +70,7 @@ class Datacollector():
                 df_fm[df_fm['step']==step]['stock'].mean(), 
                 df_td[df_td['step']==step]['amount'].sum(), 
                 (sum(1 for item in df_hh[df_hh['step'] == step]['employer']  if item == None) / len(self.model.all_agents)),
-                df_hh.loc[(df_hh.step==step) & (pd.isna(df_hh.owns_firm))]['income'].mean(),
+                df_hh.loc[(df_hh.step==step)]['income'].mean(), #& (pd.isna(df_hh.owns_firm)
                 df_td[df_td['step']==step]['price'].mean(), 
                 df_td[df_td['step']==step]['volume'].sum(),
                 # @TODO make this directly in collector to find fiv by zero
