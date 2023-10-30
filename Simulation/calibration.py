@@ -162,6 +162,12 @@ I = 4  # input size
 O = 13 # output size
 eta = 0.001 # learning rate
 
+def hyperparameter_tuning():
+   """
+   for surrogate model selection
+   https://pytorch.org/tutorials/beginner/hyperparameter_tuning_tutorial.html
+   """
+   pass
 # @TODO try:
 # Batch normalization layer
 # Adaptive laerning rate
@@ -243,7 +249,7 @@ def train(train_loader, test_loader, model, loss_fn, optimizer, epochs):
   plt.show()     
 
 # get train and test data as dataloaders
-train_loader, test_loader = create_dataloader(4, load=False)
+train_loader, test_loader = create_dataloader(m=4, load=True)
 
 # instantiate network with MSE loss and Adam optimizer
 surrogate = Surrogate().to(device)

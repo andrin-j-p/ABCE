@@ -5,15 +5,17 @@ import matplotlib as mpl
 import networkx as nx
 from read_data import create_agent_data
 from data_collector import Datacollector
-#import timeit
+import timeit
 import copy
 
 #import cProfile # move to Test.py
 #import pstats   # move to Test.py
 
+
 # @TODO 
 # implement cobb douglas? demand
 # implement cobb douglas? production function 
+# handle negative demand caused by 0.7 * income
 
 class Firm(mesa.Agent):
   """
@@ -28,20 +30,20 @@ class Firm(mesa.Agent):
     self.owner = None
     self.market = market
     self.village = village
-    self.productivity = np.random.uniform(1, 2) # @Calibrate: main variable. To tune owner income i.e. self.money
+    self.productivity = 3#np.random.uniform(1.5, 2.5) # @Calibrate: main variable. To tune owner income i.e. self.money
     # price
     self.price = np.random.uniform(1, 10) # price in current month (initialized randomly)
     self.marginal_cost = 1 # @CALIBRATE: if necessary
-    self.max_price = 100 #@ set to reasonable value
+    self.max_price = 11 #@ set to reasonable value
     self.theta = 0.5 # probability for price change
     self.nu = 0.3 # rate for price change @Calibrate: if necessary 
-    self.phi_l = 0.1# phi_l * sales = minimal stock
-    self.phi_u = 10 # phi_u * slaes = max stock for 
+    self.phi_l = 0.1 # phi_l * sales = minimal stock
+    self.phi_u = 1 # phi_u * sales = max stock for 
     self.employees = [] 
     # inventory 
     self.min_stock = 0 # 10% percent of last months sales @TODO perishable?
     self.max_stock = 0 # 150% percent of last months sales 
-    self.stock = 300000
+    self.stock = 3000
     self.output = 0 # quantity produced this month
     self.sales = 0  # quantity sold this month
     # profit
@@ -105,7 +107,9 @@ class Firm(mesa.Agent):
     # 1) the company employs workers
     # 2) the inventory at the end of the month is above the maximum stock
     elif self.stock > self.max_stock and len(self.employees) > 0:
-      sorted(self.employees, key=lambda x: x.productivity)      
+      sorted(self.employees, key=lambda x: x.productivity)  
+      self.model.datacollector.worker_fired += 1
+    
       self.employees.pop()
 
   def distribute_profit(self):
@@ -126,8 +130,8 @@ class Firm(mesa.Agent):
     # Pay owner based on profits
     profit = 0.7 * self.money
     self.money -= profit
-    self.owner.money += profit
-    self.owner.income += profit
+    self.owner.money += 0
+    self.owner.income += 0
       
   def step(self):
     """
@@ -136,7 +140,7 @@ class Firm(mesa.Agent):
     Execute:     Monthly
     """
     # If it is the end of a month the month
-    if self.model.schedule.steps%5 == 0:
+    if self.model.schedule.steps%7 == 0:
       ## END OF MONTH
       # pay out wages and owner
       self.distribute_profit()
@@ -171,14 +175,14 @@ class Agent(mesa.Agent):
     self.firm = firm 
     self.employer = employer
     self.best_dealers = []
-    self.productivity = income # @CALIBRATE: main calibration variable for self.money reg. to identify
+    self.productivity = income # @Change this s.t. positive CALIBRATE: main calibration variable for self.money reg. to identify
     # initialize consumption related characteristics
     # @Extension: four categories:Food,Livestock, Non-Food Non-Durables, Durables, Temptation Goods
     # @Extension: distinguish between perishable and non-perishable good
     self.market_day = np.random.randint(0, 7) # day the agent goes to market. Note: bounds are included
     self.best_dealer_price = 1000 # agent remembers price of best dealer last week
     self.money = 1000000 # for initial value estimate / retrive from data 
-    self.demand = 0.7 * self.income # @TODO make dependent on hh size
+    self.demand = 1000 if self.income < 1000 else pow(self.income, 0.8) # @basic needs @faster with ** than pow? @Calibrate + TODO make dependent on hh size
     self.consumption = 0 
 
   def find_dealer(self):
@@ -206,7 +210,9 @@ class Agent(mesa.Agent):
       # randomly select a new dealer from the dealers not already in the list and append it at the end 
       # note: np.random.choice returns a np. array; thus the index
       new_dealer = np.random.choice(list(set(potential_dealers) - set(self.best_dealers)), size=1, replace=False)[0]
-      self.best_dealers[-1] = new_dealer
+      if self.best_dealers[-1].price > new_dealer.price:
+        self.best_dealers[-1] =  new_dealer
+
 
     # sort the list of dealers according to the price they offer
     self.best_dealers = sorted(self.best_dealers, key=lambda x: x.price)
@@ -214,6 +220,10 @@ class Agent(mesa.Agent):
 
     # return the first dealer in the list which has enough of the good on stock
     for dealer in self.best_dealers:
+      if dealer.stock >= self.demand:
+        return dealer
+
+    for dealer in potential_dealers:
       if dealer.stock >= self.demand:
         return dealer
 
@@ -296,7 +306,7 @@ class Sugarscepe(mesa.Model):
   Type:         Mesa Model Class
   Description:  Main Class for the simulation
   """
-  def __init__(self, min_lat=-0.05 , max_lat=0.25, min_lon=34.00, max_lon=34.5, N=15000):
+  def __init__(self, min_lat=-0.05 , max_lat=0.25, min_lon=34.00, max_lon=34.5, N=30000):
     print('init was called')
 
     # confine the geographic space of the grid to the study area
@@ -334,12 +344,13 @@ class Sugarscepe(mesa.Model):
               for row in self.df_fm.itertuples()}
 
     # create a list of agents based on the loaded df_hh
-    hh_lst = [Agent(unique_id=row.hhid_key, model=self, village=vl_dct[row.village_code], income=row.p3_totincome,
+    hh_lst = [Agent(unique_id=row.hhid_key, model=self, village=vl_dct[row.village_code], income=row.p3_totincome/52,
                     firm=fm_dct.get(row.hhid_key, None), employer=fm_dct.get(row.hhid_key, None))
               for row in self.df_hh.itertuples()]
 
-    # create N additional, syntetic hhs based on randomly chosen existing hhs
-    templates = np.random.choice(hh_lst, size=self.N, replace=True)
+    # create N additional, syntetic hhs based on randomly chosen, existing hhs
+    # Note: all syntetic hh have positive income: asserts that only firm owners can have non-positive income
+    templates = np.random.choice([hh for hh in hh_lst if hh.income > 0], size=self.N, replace=True)
     for i, hh in enumerate(templates):
       new_instance = copy.copy(hh)
       new_instance.unique_id = f"S{i}_{hh.unique_id}"
@@ -430,27 +441,32 @@ class Sugarscepe(mesa.Model):
     Type:        Method
     Description: Runs the simulation for the specified number of steps
     """
+    start = timeit.default_timer()
+
     for i in range(steps):
       print(f"\rSimulating step: {i + 1} ({round((i + 1)*100/steps, 0)}% complete)", end="", flush=True)
       self.step()
     print("\n")
 
+    stop = timeit.default_timer()
+    print('Time: ', stop - start)  
+
   def __repr__(self):
     return f'N Households: {len(self.all_agents)} \nN Frims {len(self.all_firms)} \nN Villages {len(self.all_villages)}\nN Markets {len(self.all_markets)}'
 
 
-def run_simulation(steps = 25):
-  #start = timeit.default_timer()
+def run_simulation(steps = 200):
+  start = timeit.default_timer()
 
   model = Sugarscepe()
   model.run_simulation(steps)
   print(model)
   hh_data, fm_data, md_data, _ = model.datacollector.get_data()
   print(md_data[['step','average_stock', 'unemployment_rate', 'average_income', 'average_price', 
-                'trade_volume', 'demand_satisfied', 'no_worker_found', 'no_dealer_found', 'output']].head(steps))
+                'trade_volume', 'no_worker_found', 'no_dealer_found', 'output', 'worker_fired']].head(steps))
   #print(hh_data[hh_data['step'] == 90][['step', 'income', 'owns_firm']].head(250))
-  #stop = timeit.default_timer()
-  #print('Time: ', stop - start)  
+  stop = timeit.default_timer()
+  print('Time: ', stop - start)  
   return model
 
 if __name__ == "__main__":

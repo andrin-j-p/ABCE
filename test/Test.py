@@ -77,9 +77,9 @@ class Testsim(ABM.Sugarscepe):
     self.fm_dct = {firm.unique_id: firm for firm in self.all_firms}
     self.hh_dct = {hh.unique_id: hh for hh in self.all_agents}
 
-steps = 25
+steps = 100
 model = Testsim()
-model.run_simulation(steps=25)
+model.run_simulation(steps=steps)
 df_hh_sim, df_fm_sim, df_md_sim, df_td_sim = model.datacollector.get_data()
     
 
@@ -89,7 +89,6 @@ class TestABM(unittest.TestCase):
     Description: Unittesting for functions in ABM.py
     """
 ### test deterministic model properties 
-    @unittest.skip("Does not hold in general")
     def test_village_instantiation(self):
         """
         test if there are markets without vendors
@@ -106,7 +105,16 @@ class TestABM(unittest.TestCase):
             val_exp = f"m_{int(df_nrst_mk.loc[df_nrst_mk['village_code']==vl.unique_id]['market_id'].iloc[0])}"
             self.assertEqual(val_sim, val_exp)
 
+    def test_hh_with_negative_income(self):
+        """
+        test if there are hh not owning a firm have negative income
+        should not be the case since the 3 observations with that property are droped see read_data.py 
+        """
+        result = df_hh_sim.loc[(df_hh_sim.step==0) & pd.isna(df_hh_sim.owns_firm) & (df_hh_sim['income'] < 0)]['income']
+        self.assertEqual(len(result), 0)
+
 ### test frim properties
+
     def test_all_firms_on_market(self):
         """
         test if all vendors have a firm
@@ -154,6 +162,15 @@ class TestABM(unittest.TestCase):
                 self.assertEqual(hh.employer, hh.firm)
 
 ### test trade related properties
+
+    def test_hh_negative_trade_volume(self):
+        """
+        test if there are trades with negative volume = price * demand
+        should not be the case since demand is a maximum function see ABM.py
+        """
+        result = df_td_sim[df_td_sim['volume'] < 0]
+        self.assertEqual(len(result), 0)
+
     def test_price_larger_min_price(self):
         """
         test if trades happen at a price larger than min price
