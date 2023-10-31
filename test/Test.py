@@ -269,6 +269,9 @@ class TestCalibration(unittest.TestCase):
             self.assertEqual(firm.theta, 0)
             self.assertEqual(firm.phi_l, 0.4)
 
+    def test_mse(self):
+        pass
+
 if __name__ == '__main__':
 
     unittest.main()

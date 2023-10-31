@@ -31,13 +31,14 @@ class Datacollector():
                   for agent in self.model.all_agents]
     
     firm_data = [(step, firm.unique_id, firm.stock, firm.price, firm.money, firm.output, firm.sales, firm.price * firm.sales,
-                  len(firm.employees))
+                  len(firm.employees), len(set(firm.costumers)))
                  for firm in self.model.all_firms]
     
     # Create a Pandas DataFrames from the list comprehensions
     df_hh_new = pd.DataFrame(agent_data, columns=['step','unique_id', 'village_id', 'lat', 'lon', "income", "best_dealers", "consumption", "money", 
                                                   "demand", 'employer', 'owns_firm'])
-    df_fm_new = pd.DataFrame(firm_data, columns=['step', 'unique_id', 'stock', 'price', 'money', 'output', 'sales', 'revenue', 'employees'])
+    df_fm_new = pd.DataFrame(firm_data, columns=['step', 'unique_id', 'stock', 'price', 'money', 'output', 'sales', 'revenue', 'employees', 
+                                                 'costumers'])
  
      # Create a Pandas Dataframe from model data and reset their values
     df_md_new = {'step': step, 'no_worker_found': self.no_worker_found, 'no_dealer_found': self.no_dealer_found, 'worker_fired': self.worker_fired}
@@ -74,7 +75,8 @@ class Datacollector():
                 df_td[df_td['step']==step]['price'].mean(), 
                 df_td[df_td['step']==step]['volume'].sum(),
                 # @TODO make this directly in collector to find fiv by zero
-                df_td[df_td['step']==step]['amount'].sum(), #/ (df_hh[df_hh['step']==step]['demand'].sum()/7),
+                #df_td[df_td['step']==step]['amount'].sum() / 
+                (df_hh[df_hh['step']==step]['demand'].sum()/7),
                 df_fm[df_fm['step']==step]['output'].sum())
                 for step in range(self.model.schedule.steps + 1)]
     

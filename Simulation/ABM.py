@@ -8,8 +8,8 @@ from data_collector import Datacollector
 import timeit
 import copy
 
-#import cProfile # move to Test.py
-#import pstats   # move to Test.py
+import cProfile # move to Test.py
+import pstats   # move to Test.py
 
 
 # @TODO 
@@ -30,12 +30,12 @@ class Firm(mesa.Agent):
     self.owner = None
     self.market = market
     self.village = village
-    self.productivity = 3#np.random.uniform(1.5, 2.5) # @Calibrate: main variable. To tune owner income i.e. self.money
+    self.productivity = 2#np.random.uniform(1.5, 2.5) # @Calibrate: main variable. To tune owner income i.e. self.money
     # price
     self.price = np.random.uniform(1, 10) # price in current month (initialized randomly)
     self.marginal_cost = 1 # @CALIBRATE: if necessary
     self.max_price = 11 #@ set to reasonable value
-    self.theta = 0.5 # probability for price change
+    self.theta = 0.8 # probability for price change
     self.nu = 0.3 # rate for price change @Calibrate: if necessary 
     self.phi_l = 0.1 # phi_l * sales = minimal stock
     self.phi_u = 1 # phi_u * sales = max stock for 
@@ -49,6 +49,9 @@ class Firm(mesa.Agent):
     # profit
     self.money = 0
 
+    #@DELETE
+    self.costumers = []
+
   def set_price(self):
     """
     Type:        Method 
@@ -60,14 +63,14 @@ class Firm(mesa.Agent):
     # 1) the stock is below the minimum inventory
     # 2) price last month was strictly smaller than the maximum price
     if self.stock < self.min_stock and current_price * (1 + self.nu) < self.max_price:
-      if np.random.uniform(0, 1) < self.theta:
+      if np.random.uniform(0, 1) <= self.theta:
         current_price *= 1 + self.nu
 
     # price is decresed with probability theta if the follwoing conditions are met:
     # 1) the stock exceeds the maximum inventory
     # 2) price last month was strictly larger than the marginal cost
     elif self.stock > self.max_stock and current_price * (1-self.nu) > self.marginal_cost:
-      if np.random.uniform(0, 1) < self.theta:
+      if np.random.uniform(0, 1) <= self.theta:
         current_price *= 1 - self.nu
 
     # update price
@@ -80,7 +83,7 @@ class Firm(mesa.Agent):
     Execute:     Monthly 
     """
     # Output is a function of employees' and firms' productivity parameters
-    amount = self.productivity * (sum(employee.productivity for employee in self.employees) + self.owner.productivity)
+    amount = self.productivity * (sum(employee.productivity for employee in self.employees) +100 ) #+ self.owner.productivity)
     self.output += amount
     self.stock += amount
     self.money -= amount * self.marginal_cost
@@ -109,8 +112,10 @@ class Firm(mesa.Agent):
     elif self.stock > self.max_stock and len(self.employees) > 0:
       sorted(self.employees, key=lambda x: x.productivity)  
       self.model.datacollector.worker_fired += 1
-    
-      self.employees.pop()
+
+      # remove the fired worker from the employee list and make her available for work again
+      worker_fired = self.employees.pop()
+      worker_fired.employer = None
 
   def distribute_profit(self):
     """
@@ -223,10 +228,6 @@ class Agent(mesa.Agent):
       if dealer.stock >= self.demand:
         return dealer
 
-    for dealer in potential_dealers:
-      if dealer.stock >= self.demand:
-        return dealer
-
     self.model.datacollector.no_dealer_found += 1
 
     return False
@@ -249,6 +250,8 @@ class Agent(mesa.Agent):
     dealer.stock -= self.demand
     dealer.sales += self.demand
     dealer.money += total_price 
+    #@DELETE
+    dealer.costumers.append(self)
     
     # save the transaction details in the model data collector
     self.model.datacollector.td_data.append({"step": self.model.schedule.steps, "parties": (self.unique_id, dealer.owner.unique_id), 
@@ -452,10 +455,10 @@ class Sugarscepe(mesa.Model):
     print('Time: ', stop - start)  
 
   def __repr__(self):
-    return f'N Households: {len(self.all_agents)} \nN Frims {len(self.all_firms)} \nN Villages {len(self.all_villages)}\nN Markets {len(self.all_markets)}'
+    return f'N Households: {len(self.all_agents)} \nN Firms: {len(self.all_firms)} \nN Villages: {len(self.all_villages)}\nN Markets: {len(self.all_markets)}'
 
 
-def run_simulation(steps = 200):
+def run_simulation(steps = 100):
   start = timeit.default_timer()
 
   model = Sugarscepe()
@@ -463,21 +466,21 @@ def run_simulation(steps = 200):
   print(model)
   hh_data, fm_data, md_data, _ = model.datacollector.get_data()
   print(md_data[['step','average_stock', 'unemployment_rate', 'average_income', 'average_price', 
-                'trade_volume', 'no_worker_found', 'no_dealer_found', 'output', 'worker_fired']].head(steps))
-  #print(hh_data[hh_data['step'] == 90][['step', 'income', 'owns_firm']].head(250))
+                'trade_volume', 'no_worker_found', 'no_dealer_found', 'demand_satisfied', 'worker_fired']].head(steps))
+  
+  
+  #print(fm_data[fm_data['step'] == 146][['stock', 'sales', 'price', 'costumers', 'employees']].head(250))
   stop = timeit.default_timer()
   print('Time: ', stop - start)  
   return model
 
 if __name__ == "__main__":
-    #cProfile.run("run_simulation()", filename="../data/profile_output.txt", sort='cumulative')
+    cProfile.run("run_simulation()", filename="../data/profile_output.txt", sort='cumulative')
     
     # Create a pstats.Stats object from the profile file
-    #profile_stats = pstats.Stats("../data/profile_output.txt")
+    profile_stats = pstats.Stats("../data/profile_output.txt")
 
     # Sort and print the top N entries with the highest cumulative time
-    #profile_stats.strip_dirs().sort_stats('cumulative').print_stats(20)
+    profile_stats.strip_dirs().sort_stats('cumulative').print_stats(20)
 
-
-    run_simulation()
     print('')

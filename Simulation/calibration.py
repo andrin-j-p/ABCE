@@ -9,9 +9,6 @@ import ABM
 import timeit
 import dill
 
-import cProfile # move to Test.py
-import pstats   # move to Test.py
-
 # Parameters to be calibrated
 # theta: probability for price change
 # nu:    rate for price change
@@ -19,10 +16,14 @@ import pstats   # move to Test.py
 # phi_u: uper inventory rate 
 data = {'Type': ['fm', 'fm', 'fm', 'fm'], 
         'Name': ['theta', 'nu', 'phi_l', 'phi_u'],
-        'Bounds': [(0,1), (0,5), (0.1, 0.5), (0.5, 10)]} 
+        'Bounds': [(0,1), (0.05, 0.5), (0.05, 0.5), (0.5, 1)]} 
   
 # Create DataFrame 
 df_para = pd.DataFrame(data) 
+
+# Summary statistics to be validated against
+calibration_features = ['average_stock', 'unemployment_rate', 'average_income']
+y = [8633.905329, 0.320321, 1784.718346] # after 100 steps @ DETELE solve this using a regular model run 
 
 def create_sample_parameters(parameters, m):
     """
@@ -68,9 +69,9 @@ class Model(ABM.Sugarscepe):
       self.step()
     
 
-def create_dataset(m, steps=15, save=True):
+def create_dataset(model_runs, model_steps):
   """
-  Type:        Functon
+  Type:        Function
   Description: Crates the training data for the DNN
   Remark:      Batch size is 2^Batch_size 
   """
@@ -80,7 +81,7 @@ def create_dataset(m, steps=15, save=True):
     dill.dump(simulation, file)
 
   # @TODO change this ugly global variable thing
-  draws = create_sample_parameters(df_para, m)
+  draws = create_sample_parameters(df_para, model_runs)
 
   # create a list of dictionaries; each dictionary corresponds to one sample
   parameters_names = df_para['Name'].tolist()
@@ -100,12 +101,13 @@ def create_dataset(m, steps=15, save=True):
     sim_copy.set_parameters(sample)
 
     # run the simulation with the specified parameter values
-    sim_copy.run_simulation(steps)
+    sim_copy.run_simulation(model_steps)
 
     # get the x vector i.e. the desired summary statistics
     _, _, df_md, _ = sim_copy.datacollector.get_data()
-    x.append(df_md[df_md['step']==steps-1].values.flatten().tolist())
-
+    df_md = df_md[df_md['step']==model_steps-1]
+    x.append(df_md[calibration_features].values.flatten().tolist())
+    
     end = timeit.default_timer()
     print(f"\rSimulating step: {i + 1} ({round((i + 1)*100/len(samples), 0)}% complete) time: {round(end-start, 3)}", end="", flush=True)
     
@@ -114,20 +116,21 @@ def create_dataset(m, steps=15, save=True):
   # Create a troch tensor from the sample parameter values, theta, and the output vectors, x
   theta = torch.Tensor(draws) 
   x = torch.Tensor(x)
-
   # Create a torch data set for model training 
   dataset = TensorDataset(theta, x) 
 
   # Save the dataset if specified, using dill
-  if save == True:
-    with open('../data/model_data/data_loader.dill', 'wb') as file:
-      dill.dump(dataset, file)
+  with open('../data/model_data/data_loader.dill', 'wb') as file:
+    dill.dump(dataset, file)
 
   return dataset
 
-# @ df_para / model_runs (replace m) / model_steps
 
-def create_dataloader(m, load=True):
+def create_dataloader(model_runs, model_steps, batch_size, load):
+  """
+  Type:        Function
+  Description: Creates a pytorch dataloader to iterate over in the training loop
+  """
   # if load == true the previously saved dataset is loaded
   # note: the size of the dataset will not necessarily match the size specified in m
   if load == True:
@@ -139,7 +142,7 @@ def create_dataloader(m, load=True):
   
   # if load == False a new dataset is created in create_dataset
   else:
-    dataset = create_dataset(m)
+    dataset = create_dataset(model_runs, model_steps)
 
   # Split the dataset into training and testing sets
   total_samples = len(dataset)
@@ -148,8 +151,8 @@ def create_dataloader(m, load=True):
   train_dataset, test_dataset = random_split(dataset, [train_size, test_size])
   
   # Create DataLoader instances for training and testing
-  train_dataloader = DataLoader(train_dataset, batch_size=12, shuffle=True)
-  test_dataloader = DataLoader(test_dataset, batch_size=12, shuffle=False)
+  train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+  test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
   return train_dataloader, test_dataloader
 
@@ -158,21 +161,22 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Using {device} device")
 
 epochs = 1000
-I = 4  # input size
-O = 13 # output size
+I = df_para.shape[0]  # input size
+O = len(y) # output size
 eta = 0.001 # learning rate
 
 def hyperparameter_tuning():
-   """
-   for surrogate model selection
-   https://pytorch.org/tutorials/beginner/hyperparameter_tuning_tutorial.html
-   """
-   pass
-# @TODO try:
-# Batch normalization layer
-# Adaptive laerning rate
-# Node size
-# batch? already done??
+  """
+  for surrogate model selection
+  https://pytorch.org/tutorials/beginner/hyperparameter_tuning_tutorial.html
+  """
+  # @TODO try:
+  # Batch normalization layer
+  # Adaptive laerning rate
+  # Node size
+  # transform in dataloader?
+  # momentum?
+  pass
 
 # build the network class
 class Surrogate(nn.Module):
@@ -195,6 +199,17 @@ class Surrogate(nn.Module):
         Z = self.linear_sigmoid_stack(x)
         return Z
 
+def plot_losses(train_losses, test_losses):
+  """
+  Type:        Helper function 
+  Description: Plots training and test losses
+  """
+  # @make this pretty
+  print(f'\r Test MSE: {test_losses}')
+  plt.plot(train_losses, label='train_loss')
+  plt.plot(test_losses, label='val_loss')
+  plt.show()     
+
 def train(train_loader, test_loader, model, loss_fn, optimizer, epochs):
   """
   Type:        Function 
@@ -207,6 +222,7 @@ def train(train_loader, test_loader, model, loss_fn, optimizer, epochs):
       print(f'\repoch: {epoch}', end='', flush=True)
       running_loss = 0.0
       for theta, x in train_loader:
+
         # reset the gradient
         optimizer.zero_grad()
 
@@ -235,38 +251,53 @@ def train(train_loader, test_loader, model, loss_fn, optimizer, epochs):
       # Compute network output
       pred = model(theta)
 
-      # compute loss and add it to running loss
+      # compute loss and add it to test_losses
       loss = loss_fn(pred, x)
       running_loss += loss.item()
+      test_losses.append(running_loss / len(test_loader))
 
-    test_losses.append(running_loss / len(test_loader))
-
-  # plot the lossess
-  # @TODO make this a function 
-  print(f'\r Test MSE: {test_losses}')
-  plt.plot(train_losses, label='train_loss')
-  plt.plot(test_losses, label='val_loss')
-  plt.show()     
+  # plot the losses
+  plot_losses(train_losses, test_losses)
 
 # get train and test data as dataloaders
-train_loader, test_loader = create_dataloader(m=4, load=True)
+train_loader, test_loader = create_dataloader(model_runs=7, model_steps = 100, batch_size=12, load=False)
 
-# instantiate network with MSE loss and Adam optimizer
+# Instantiate network with MSE loss and Adam optimizer
 surrogate = Surrogate().to(device)
 loss_fn = nn.MSELoss()
 optimizer = torch.optim.Adam(params=surrogate.parameters(), lr=eta)
 
-# train the model
+# Train the surrogate model
 train(train_loader, test_loader, surrogate, loss_fn, optimizer, epochs)
 
+def calculate_MSE(x, y):
+   """
+   Type:        Helper function 
+   Description: Calculates the mean squared loss btw. two vectors
+   """
+   return ((x - y) ** 2).mean(axis=0)
 
-if __name__ == "__main__":
-    #cProfile.run("create_batch(10)", filename="../data/profile_output.txt", sort='cumulative')
-    
-    # Create a pstats.Stats object from the profile file
-    #profile_stats = pstats.Stats("../data/profile_output.txt")
 
-    # Sort and print the top N entries with the highest cumulative time
-    #profile_stats.strip_dirs().sort_stats('cumulative').print_stats(20)
+def rejection_abc(y, model):
+  # create 2^17 = 131 072 theta values
+  draws = create_sample_parameters(m=6)    
+  
+  # for each theta, predict the x vectors using the surrogate and calculate the corresponding mse
+  samples = []
+  for draw in draws:
+     x_pred = model(draw)
+     mse = calculate_MSE(x_pred, y)
+     samples.append((draw, x_pred, mse))
 
-    print('')
+  # keep only the x-prediction most close to the actually observed outcome
+  samples = sorted(samples, key=lambda sample : sample[2])
+  selected_samples = samples[:int(len(samples) * 0.8)]
+
+  return selected_samples
+
+test_theta = torch.tensor([[0.8, 0.3, 0.1, 1]])
+x_pred = surrogate(test_theta)
+print(list(x_pred))
+print(y)
+#rejection_abc(y, surrogate) 
+
