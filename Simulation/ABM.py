@@ -458,7 +458,7 @@ class Sugarscepe(mesa.Model):
     return f'N Households: {len(self.all_agents)} \nN Firms: {len(self.all_firms)} \nN Villages: {len(self.all_villages)}\nN Markets: {len(self.all_markets)}'
 
 
-def run_simulation(steps = 100):
+def run_simulation(steps = 1000):
   start = timeit.default_timer()
 
   model = Sugarscepe()
@@ -475,12 +475,12 @@ def run_simulation(steps = 100):
   return model
 
 if __name__ == "__main__":
-    cProfile.run("run_simulation()", filename="../data/profile_output.txt", sort='cumulative')
+    #cProfile.run("run_simulation()", filename="../data/profile_output.txt", sort='cumulative')
     
     # Create a pstats.Stats object from the profile file
-    profile_stats = pstats.Stats("../data/profile_output.txt")
+    #profile_stats = pstats.Stats("../data/profile_output.txt")
 
     # Sort and print the top N entries with the highest cumulative time
-    profile_stats.strip_dirs().sort_stats('cumulative').print_stats(20)
-
+    #profile_stats.strip_dirs().sort_stats('cumulative').print_stats(20)
+    run_simulation()
     print('')

@@ -6,6 +6,7 @@ from matplotlib import pyplot as plt
 import pandas as pd
 from scipy.stats import qmc
 import ABM
+from data_collector import Sparse_collector
 import timeit
 import dill
 
@@ -23,33 +24,20 @@ df_para = pd.DataFrame(data)
 
 # Summary statistics to be validated against
 calibration_features = ['average_stock', 'unemployment_rate', 'average_income']
-y = [8633.905329, 0.320321, 1784.718346] # after 100 steps @ DETELE solve this using a regular model run 
-
-def create_sample_parameters(parameters, m):
-    """
-    Type:           Helper function
-    Description:    Creates N sample parameter vectors to train the DNN
-                    The samples are pseudo-random and based on the Sobol sequence to speed up convergence
-    References:     https://iopscience.iop.org/article/10.3847/0004-637X/830/1/31/meta
-                    Jorgenson 2022
-                    https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.qmc.Sobol.html
-    """
-    # create a Sobol sequence with dimension d='number or parameters' and length 2^m
-    sampler = qmc.Sobol(d=parameters.shape[0], scramble=False)
-    draws = sampler.random_base2(m=m)
-
-    # scale the sequence to the parameter range
-    l_bounds = [l[0] for l in parameters.Bounds]
-    u_bounds = [u[1] for u in parameters.Bounds]
-    draws = qmc.scale(draws, l_bounds, u_bounds)
-    draws = np.round(draws, 5)
-
-    return draws
+y = torch.tensor([8633.905329, 0.320321, 1784.718346]) # after 100 steps @ DETELE solve this using a regular model run 
 
 
 class Model(ABM.Sugarscepe):
+  """
+  Type:        Child Class Sugarscepe
+  Description: Implements the following additional functionality imperative for the calibration process:
+               -set_parameters(): sets the parameters of the model to the specified values
+               -run_simulaiton(): runs the simulation to generate the output vector x
+               -sparse_datacollector: collects only the data necessary for the calibraiton process
+  """
   def __init__(self):
     super().__init__()
+    self.datacollector = Sparse_collector(self)
     
   def set_parameters(self, fm_sample):
     """
@@ -62,25 +50,46 @@ class Model(ABM.Sugarscepe):
 
   def run_simulation(self, steps):
     """
-    Type: Method
-    Description: overwrite run simulaiton in parent class to avoid print statement
+    Type:        Method
+    Description: Overwrite run simulaiton in parent class to avoid print statement
     """
     for _ in range(steps):
       self.step()
     
 
+def create_sample_parameters(parameters, m):
+    """
+    Type:           Helper function
+    Description:    Creates N sample parameter vectors to train the DNN
+                    The samples are pseudo-random and based on the Sobol sequence to speed up convergence
+    References:     https://iopscience.iop.org/article/10.3847/0004-637X/830/1/31/meta
+                    Jorgenson 2022
+                    https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.qmc.Sobol.html
+    """
+    # create a Sobol sequence with dimension d='number of parameters' and length 2^m
+    sampler = qmc.Sobol(d=parameters.shape[0], scramble=False)
+    draws = sampler.random_base2(m=m)
+
+    # scale the sequence to the parameter range
+    l_bounds = [l[0] for l in parameters.Bounds]
+    u_bounds = [u[1] for u in parameters.Bounds]
+    draws = qmc.scale(draws, l_bounds, u_bounds)
+    draws = np.round(draws, 5)
+
+    return draws
+
+
 def create_dataset(model_runs, model_steps):
   """
   Type:        Function
-  Description: Crates the training data for the DNN
-  Remark:      Batch size is 2^Batch_size 
+  Description: Crates the training data for the DNN 
   """
   # create a deep copy of the initial model state so model __init__ is only executed once
   simulation = Model()
   with open('../data/model_data/simulation_initial_state.dill', 'wb') as file:
     dill.dump(simulation, file)
 
-  # @TODO change this ugly global variable thing
+  # create 2**model_runs theta values
   draws = create_sample_parameters(df_para, model_runs)
 
   # create a list of dictionaries; each dictionary corresponds to one sample
@@ -104,9 +113,9 @@ def create_dataset(model_runs, model_steps):
     sim_copy.run_simulation(model_steps)
 
     # get the x vector i.e. the desired summary statistics
-    _, _, df_md, _ = sim_copy.datacollector.get_data()
-    df_md = df_md[df_md['step']==model_steps-1]
-    x.append(df_md[calibration_features].values.flatten().tolist())
+    df_sm = sim_copy.datacollector.get_data()
+    df_sm = df_sm[df_sm['step']==model_steps-1]
+    x.append(df_sm[calibration_features].values.flatten().tolist())
     
     end = timeit.default_timer()
     print(f"\rSimulating step: {i + 1} ({round((i + 1)*100/len(samples), 0)}% complete) time: {round(end-start, 3)}", end="", flush=True)
@@ -116,11 +125,12 @@ def create_dataset(model_runs, model_steps):
   # Create a troch tensor from the sample parameter values, theta, and the output vectors, x
   theta = torch.Tensor(draws) 
   x = torch.Tensor(x)
+
   # Create a torch data set for model training 
   dataset = TensorDataset(theta, x) 
 
-  # Save the dataset if specified, using dill
-  with open('../data/model_data/data_loader.dill', 'wb') as file:
+  # Save the dataset as a file
+  with open('../data/model_data/data_loader0.dill', 'wb') as file:
     dill.dump(dataset, file)
 
   return dataset
@@ -129,7 +139,8 @@ def create_dataset(model_runs, model_steps):
 def create_dataloader(model_runs, model_steps, batch_size, load):
   """
   Type:        Function
-  Description: Creates a pytorch dataloader to iterate over in the training loop
+  Description: Creates a pytorch dataloader from a dataset 
+               used in the training loop
   """
   # if load == true the previously saved dataset is loaded
   # note: the size of the dataset will not necessarily match the size specified in m
@@ -140,7 +151,7 @@ def create_dataloader(model_runs, model_steps, batch_size, load):
     
     dataset = loaded_dataset
   
-  # if load == False a new dataset is created in create_dataset
+  # if load == False a new dataset is created in 'create_dataset()'
   else:
     dataset = create_dataset(model_runs, model_steps)
 
@@ -152,23 +163,24 @@ def create_dataloader(model_runs, model_steps, batch_size, load):
   
   # Create DataLoader instances for training and testing
   train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-  test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+  test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
 
   return train_dataloader, test_dataloader
 
-# define hyper parameters
+# define hyper-parameters
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Using {device} device")
 
-epochs = 1000
+epochs = 100
 I = df_para.shape[0]  # input size
 O = len(y) # output size
 eta = 0.001 # learning rate
 
 def hyperparameter_tuning():
   """
-  for surrogate model selection
-  https://pytorch.org/tutorials/beginner/hyperparameter_tuning_tutorial.html
+  Type:        Helper Function 
+  Description: For surrogate model selection
+  References:  https://pytorch.org/tutorials/beginner/hyperparameter_tuning_tutorial.html
   """
   # @TODO try:
   # Batch normalization layer
@@ -178,11 +190,10 @@ def hyperparameter_tuning():
   # momentum?
   pass
 
-# build the network class
+# Define the network class
 class Surrogate(nn.Module):
     def __init__(self):
         super(Surrogate, self).__init__()
-        self.flatten = nn.Flatten()
         self.linear_sigmoid_stack = nn.Sequential(
             nn.Linear(I, 100),
             nn.Linear(100, 100),
@@ -195,7 +206,6 @@ class Surrogate(nn.Module):
         )
 
     def forward(self, x):
-        x = self.flatten(x)
         Z = self.linear_sigmoid_stack(x)
         return Z
 
@@ -260,7 +270,7 @@ def train(train_loader, test_loader, model, loss_fn, optimizer, epochs):
   plot_losses(train_losses, test_losses)
 
 # get train and test data as dataloaders
-train_loader, test_loader = create_dataloader(model_runs=7, model_steps = 100, batch_size=12, load=False)
+train_loader, test_loader = create_dataloader(model_runs=7, model_steps = 100, batch_size=12, load=True)
 
 # Instantiate network with MSE loss and Adam optimizer
 surrogate = Surrogate().to(device)
@@ -275,29 +285,49 @@ def calculate_MSE(x, y):
    Type:        Helper function 
    Description: Calculates the mean squared loss btw. two vectors
    """
-   return ((x - y) ** 2).mean(axis=0)
+   return torch.mean(torch.square(x - y)).item()
 
 
-def rejection_abc(y, model):
+def rejection_abc(y, surrogate):
+  """
+  Type:        Function 
+  Description: Main function to conduct Baysian inference 
+  """
   # create 2^17 = 131 072 theta values
-  draws = create_sample_parameters(m=6)    
+  draws = create_sample_parameters(df_para, m=17)    
   
   # for each theta, predict the x vectors using the surrogate and calculate the corresponding mse
   samples = []
   for draw in draws:
-     x_pred = model(draw)
+     draw = torch.Tensor(draw)
+     x_pred = surrogate(draw)
+     #x_pred = x_pred
      mse = calculate_MSE(x_pred, y)
      samples.append((draw, x_pred, mse))
 
-  # keep only the x-prediction most close to the actually observed outcome
+  # keep only the x-predictions most close to the actually observed outcome
   samples = sorted(samples, key=lambda sample : sample[2])
-  selected_samples = samples[:int(len(samples) * 0.8)]
 
-  return selected_samples
+  selected_samples = samples[:int(len(samples) * 0.6)]
+
+  # return the theta values
+  selected_thetas = [sample[0].cpu().data.numpy()[1] for sample in selected_samples]
+  plot_distributions(selected_thetas)
+  return selected_thetas
+
+
+def plot_distributions(selected_thetas):
+  posterior_quantiles = np.percentile(selected_thetas, [2.5, 97.5])  # 95% credible interval
+  plt.hist(selected_thetas, bins=30, density=True, alpha=0.5, color='b')
+  plt.fill_betweenx([0, 1], posterior_quantiles[0], posterior_quantiles[1], alpha=0.3, color='red')
+  plt.xlabel(f"Parameter")
+  plt.ylabel("Posterior Density")
+  plt.title("Posterior Distribution with 95% Credible Interval")
+  plt.show()
 
 test_theta = torch.tensor([[0.8, 0.3, 0.1, 1]])
 x_pred = surrogate(test_theta)
 print(list(x_pred))
 print(y)
-#rejection_abc(y, surrogate) 
+rejection_abc(y, surrogate) 
 
