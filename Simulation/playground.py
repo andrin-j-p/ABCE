@@ -47,6 +47,6 @@ print(len(df_revenue['selfemp']))
 
 # %%
 df_hh, df_fm, df_md, df_td = read_data.create_agent_data()
-print(df_hh[df_hh['p3_totincome'] < 0])
+print(df_hh['p3_totincome_PPP'] -df_hh['p2_consumption_PPP'])
 
 # %%
