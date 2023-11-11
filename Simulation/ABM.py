@@ -180,14 +180,15 @@ class Agent(mesa.Agent):
     self.firm = firm 
     self.employer = employer
     self.best_dealers = []
-    self.productivity = income # @Change this s.t. positive CALIBRATE: main calibration variable for self.money reg. to identify
+    self.productivity = income 
+    self.alpha = 0.8 # @Change this s.t. positive CALIBRATE: main calibration variable for self.money reg. to identify
     # initialize consumption related characteristics
     # @Extension: four categories:Food,Livestock, Non-Food Non-Durables, Durables, Temptation Goods
     # @Extension: distinguish between perishable and non-perishable good
     self.market_day = np.random.randint(0, 7) # day the agent goes to market. Note: bounds are included
     self.best_dealer_price = 1000 # agent remembers price of best dealer last week
     self.money = 1000000 # for initial value estimate / retrive from data 
-    self.demand = 1000 if self.income < 1000 else pow(self.income, 0.8) # @basic needs @faster with ** than pow? @Calibrate + TODO make dependent on hh size
+    self.demand = 1000 if self.income < 1000 else pow(self.income, self.alpha) # @basic needs @faster with ** than pow? @Calibrate + TODO make dependent on hh size
     self.consumption = 0 
 
   def find_dealer(self):

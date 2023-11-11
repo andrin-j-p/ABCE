@@ -8,16 +8,19 @@ from scipy.stats import qmc
 import ABM
 from data_collector import Sparse_collector
 import timeit
+import arviz as az
 import dill
+from scipy.stats import multivariate_normal
+from geomloss import SamplesLoss 
 
 # Parameters to be calibrated
 # theta: probability for price change
 # nu:    rate for price change
 # phi_l: lower inventory rate 
 # phi_u: uper inventory rate 
-data = {'Type': ['fm', 'fm', 'fm', 'fm'], 
-        'Name': ['theta', 'nu', 'phi_l', 'phi_u'],
-        'Bounds': [(0,1), (0.05, 0.5), (0.05, 0.5), (0.5, 1)]} 
+data = {'Type': ['fm', 'fm', 'fm', 'fm', 'hh'], 
+        'Name': ['theta', 'nu', 'phi_l', 'phi_u', 'alpha'],
+        'Bounds': [(0,1), (0.05, 0.5), (0.05, 0.5), (0.5, 1), (0,1)]} 
   
 # Create DataFrame 
 df_para = pd.DataFrame(data) 
@@ -39,14 +42,25 @@ class Model(ABM.Sugarscepe):
     super().__init__()
     self.datacollector = Sparse_collector(self)
     
-  def set_parameters(self, fm_sample):
+  def set_parameters(self, samples):
     """
     Type:        Method
     Description: Overwites the model parameters as specified in the 'parameters' argument
     """
+    # create 
+    fm_parameter_names = df_para[df_para['Type'] == 'fm']['Name'].tolist()
+    hh_parameter_names = df_para[df_para['Type'] == 'hh']['Name'].tolist()
+
+    fm_parameters =  { k:v for k, v in samples.items() if k in fm_parameter_names}
+    hh_parameters =  { k:v for k, v in samples.items() if k in hh_parameter_names}
+
     for firm in self.all_firms:
-      for parameter, value in fm_sample.items():
+      for parameter, value in fm_parameters.items():
         setattr(firm, parameter, value)
+    
+    for hh in self.all_agents:
+      for parameter, value in hh_parameters.items():
+        setattr(hh, parameter, value)
 
   def run_simulation(self, steps):
     """
@@ -93,8 +107,8 @@ def create_dataset(model_runs, model_steps):
   draws = create_sample_parameters(df_para, model_runs)
 
   # create a list of dictionaries; each dictionary corresponds to one sample
-  parameters_names = df_para['Name'].tolist()
-  samples = [dict(zip(parameters_names, draw)) for draw in draws]
+  parameter_names = df_para['Name'].tolist()
+  samples = [dict(zip(parameter_names, draw)) for draw in draws]
   
   # run the model for each parameter sample generated
   # @Question run it for each sample more than once?
@@ -146,7 +160,7 @@ def create_dataloader(model_runs, model_steps, batch_size, load):
   # note: the size of the dataset will not necessarily match the size specified in m
   if load == True:
     # To load the dataset from the saved file
-    with open('../data/model_data/data_loader.dill', 'rb') as file:
+    with open('../data/model_data/data_loader0.dill', 'rb') as file:
         loaded_dataset = dill.load(file)
     
     dataset = loaded_dataset
@@ -171,7 +185,7 @@ def create_dataloader(model_runs, model_steps, batch_size, load):
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Using {device} device")
 
-epochs = 100
+epochs = 200
 I = df_para.shape[0]  # input size
 O = len(y) # output size
 eta = 0.001 # learning rate
@@ -215,7 +229,6 @@ def plot_losses(train_losses, test_losses):
   Description: Plots training and test losses
   """
   # @make this pretty
-  print(f'\r Test MSE: {test_losses}')
   plt.plot(train_losses, label='train_loss')
   plt.plot(test_losses, label='val_loss')
   plt.show()     
@@ -270,7 +283,7 @@ def train(train_loader, test_loader, model, loss_fn, optimizer, epochs):
   plot_losses(train_losses, test_losses)
 
 # get train and test data as dataloaders
-train_loader, test_loader = create_dataloader(model_runs=7, model_steps = 100, batch_size=12, load=True)
+train_loader, test_loader = create_dataloader(model_runs=4, model_steps=100, batch_size=12, load=True)
 
 # Instantiate network with MSE loss and Adam optimizer
 surrogate = Surrogate().to(device)
@@ -280,12 +293,17 @@ optimizer = torch.optim.Adam(params=surrogate.parameters(), lr=eta)
 # Train the surrogate model
 train(train_loader, test_loader, surrogate, loss_fn, optimizer, epochs)
 
-def calculate_MSE(x, y):
+def calculate_L2(x, y):
    """
    Type:        Helper function 
-   Description: Calculates the mean squared loss btw. two vectors
+   Description: Calculates the L2 vector norm
    """
-   return torch.mean(torch.square(x - y)).item()
+   return torch.norm(x - y, 2).item()
+
+def wasserstein_distance(x, y):
+  print(x)
+  wd = SamplesLoss(loss="sinkhorn", p=2, blur=.05)
+  return wd(x, y)  
 
 
 def rejection_abc(y, surrogate):
@@ -301,33 +319,63 @@ def rejection_abc(y, surrogate):
   for draw in draws:
      draw = torch.Tensor(draw)
      x_pred = surrogate(draw)
-     #x_pred = x_pred
-     mse = calculate_MSE(x_pred, y)
-     samples.append((draw, x_pred, mse))
+     wd = wasserstein_distance(x_pred, y)
+     samples.append((draw, x_pred, wd))
 
-  # keep only the x-predictions most close to the actually observed outcome
+  # keep the 0.1% of the x-predictions most close to the actually observed outcome
   samples = sorted(samples, key=lambda sample : sample[2])
+  selected_samples = samples[:int(len(samples) * 0.01)]
+  best_guess = min(selected_samples, key=lambda x: x[2])
 
-  selected_samples = samples[:int(len(samples) * 0.6)]
+  selected_thetas = [sample[0].cpu().data.numpy() for sample in selected_samples]
 
-  # return the theta values
-  selected_thetas = [sample[0].cpu().data.numpy()[1] for sample in selected_samples]
-  plot_distributions(selected_thetas)
-  return selected_thetas
+  observations = np.vstack(selected_thetas)
+
+  # Initialize the proposal distribution https://people.eecs.berkeley.edu/~jordan/sail/readings/andrieu-thoms.pdf
+  cov_matrix = cov_matrix = np.cov(observations, rowvar=False)*0.001#0.1 * np.eye(df_para.shape[0]) 
+  mean_values = np.mean(observations, axis=0)
+  proposal_dist = multivariate_normal(mean=mean_values, cov=cov_matrix)
+
+  # Set the threshhold to the best guess
+  epsilon = best_guess[2]
+
+  # plot the posterior density
+  ABC_MCMC = []
+  i = 0
+  while len(ABC_MCMC) < 100:
+    proposed_theta = torch.Tensor(proposal_dist.rvs(size=1))
+    x_pred = surrogate(proposed_theta)
+    wd = wasserstein_distance(x_pred, y)
+    if wd < epsilon:
+      ABC_MCMC.append(proposed_theta)
+      proposal_dist = multivariate_normal(mean=proposed_theta, cov=cov_matrix)
+      print(len(ABC_MCMC))
+    i+= 1
+    print(f'\r Trials{i}. Found {len(ABC_MCMC)}' , flush=True, end='')
+
+  return ABC_MCMC
 
 
 def plot_distributions(selected_thetas):
-  posterior_quantiles = np.percentile(selected_thetas, [2.5, 97.5])  # 95% credible interval
-  plt.hist(selected_thetas, bins=30, density=True, alpha=0.5, color='b')
-  plt.fill_betweenx([0, 1], posterior_quantiles[0], posterior_quantiles[1], alpha=0.3, color='red')
-  plt.xlabel(f"Parameter")
-  plt.ylabel("Posterior Density")
-  plt.title("Posterior Distribution with 95% Credible Interval")
-  plt.show()
+  for i, parameter in enumerate(df_para['Name'].tolist()):
+    data = np.array([theta[i] for theta in selected_thetas])
 
-test_theta = torch.tensor([[0.8, 0.3, 0.1, 1]])
+    axes = az.plot_dist(data, rug=True, quantiles=[.05, .5, .95])
+    fig = axes.get_figure()
+    fig.suptitle(f"Density Intervals for {parameter}")
+
+    plt.show()
+
+    quantiles = [np.quantile(data, .05), np.quantile(data, .5), np.quantile(data, .95)] 
+    print(quantiles)
+
+
+
+test_theta = torch.tensor([[0.8, 0.3, 0.1, 1, 0.5]])
 x_pred = surrogate(test_theta)
-print(list(x_pred))
-print(y)
-rejection_abc(y, surrogate) 
-
+#print(list(x_pred))
+#print(y)
+#best_guess = rejection_abc(y, surrogate) 
+#print(best_guess)
+thetas = rejection_abc(y, surrogate)
+plot_distributions(thetas)
