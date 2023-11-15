@@ -106,7 +106,8 @@ def create_agent_data():
     df_hh_assets = read_dataframe("GE_HH-BL_assets.dta", "df")
 
     # selcet the variables of interest
-    df_hh = df_hh.loc[:, ["hhid_key", "village_code", "p3_totincome", "own_land_acres", "landprice_BL", "landprice", "treat", "s12_q1_cerealsamt_12mth", 'p3_totincome_PPP', 'p2_consumption_PPP']]
+    df_hh = df_hh.loc[:, ["hhid_key", "village_code", "p3_totincome", "own_land_acres", "landprice_BL", "landprice", 
+                          "treat", "s12_q1_cerealsamt_12mth", 'p3_totincome_PPP', 'p2_consumption']]
     df_hh_assets = df_hh_assets.loc[:, ["hhid_key","h1_1_livestock", "h1_2_agtools", "h1_11_landvalue", "h1_12_loans"]]
     
     # combine all hh data into one df

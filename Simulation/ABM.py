@@ -48,6 +48,7 @@ class Firm(mesa.Agent):
     self.sales = 0  # quantity sold this month
     # profit
     self.money = 0
+    self.profit = 0
 
     #@DELETE
     self.costumers = []
@@ -127,14 +128,14 @@ class Firm(mesa.Agent):
     for employee in self.employees:
       # productivity is observed imperfectly. Wages are thus fluctuating 10% above and below actual productivity
       prod = employee.productivity
-      wage = prod + np.random.uniform(prod -(prod * 10 /100), prod + (prod *10/100))
+      wage = prod + np.random.uniform(prod - (prod * 10 /100), prod + (prod *10/100))
       self.money -= wage
       employee.money += wage
       employee.income = wage 
 
     # Pay owner based on profits
-    profit = 0.7 * self.money
-    self.money -= profit
+    self.profit = 0.7 * self.money
+    self.money -= self.profit
     self.owner.money += 0
     self.owner.income += 0
       
@@ -170,25 +171,30 @@ class Agent(mesa.Agent):
   """
   def __init__(self, unique_id, model, village, income, firm, employer):
     super().__init__(unique_id, model)
+    # parameters to be calibrated
+    self.alpha = 0.8 # propensity to consume
+    self.mu = 2
+    self.sigma = 1
+
     # initialize geo-related characteristics
     self.village = village
     self.county = self.village.county
     self.pos = (self.village.pos[0] + np.random.uniform(-0.0003, 0.0003), # pos is a tuple of shape (lat, lon) as used for continuous_grid in mesa
                 self.village.pos[1] + np.random.uniform(-0.0003, 0.0003)) # it is randomly clustered around the village the agent belongs to
+    
     # initialize other hh characteristics
-    self.income = income
+    self.income = float(np.random.lognormal(self.mu, self.sigma, size=1)*6)
     self.firm = firm 
     self.employer = employer
     self.best_dealers = []
-    self.productivity = income 
-    self.alpha = 0.8 # @Change this s.t. positive CALIBRATE: main calibration variable for self.money reg. to identify
+    self.productivity = self.income 
     # initialize consumption related characteristics
     # @Extension: four categories:Food,Livestock, Non-Food Non-Durables, Durables, Temptation Goods
     # @Extension: distinguish between perishable and non-perishable good
     self.market_day = np.random.randint(0, 7) # day the agent goes to market. Note: bounds are included
     self.best_dealer_price = 1000 # agent remembers price of best dealer last week
-    self.money = 1000000 # for initial value estimate / retrive from data 
-    self.demand = 1000 if self.income < 1000 else pow(self.income, self.alpha) # @basic needs @faster with ** than pow? @Calibrate + TODO make dependent on hh size
+    self.money = 1000 # for initial value estimate / retrive from data 
+    self.demand = 1 if self.income < 0 else pow(self.income, self.alpha) # @basic needs @TODO make dependent on hh size
     self.consumption = 0 
 
   def find_dealer(self):
@@ -348,7 +354,7 @@ class Sugarscepe(mesa.Model):
               for row in self.df_fm.itertuples()}
 
     # create a list of agents based on the loaded df_hh
-    hh_lst = [Agent(unique_id=row.hhid_key, model=self, village=vl_dct[row.village_code], income=row.p3_totincome/52,
+    hh_lst = [Agent(unique_id=row.hhid_key, model=self, village=vl_dct[row.village_code], income=row.p2_consumption,
                     firm=fm_dct.get(row.hhid_key, None), employer=fm_dct.get(row.hhid_key, None))
               for row in self.df_hh.itertuples()]
 
@@ -357,9 +363,17 @@ class Sugarscepe(mesa.Model):
     templates = np.random.choice([hh for hh in hh_lst if hh.income > 0], size=self.N, replace=True)
     for i, hh in enumerate(templates):
       new_instance = copy.copy(hh)
-      new_instance.unique_id = f"S{i}_{hh.unique_id}"
-      new_instance.firm = None
-      new_instance.employer = None
+      new_instance.unique_id = f"HHS{i}_{hh.unique_id}"
+      if np.random.random() < 0.5:
+        firm = Firm(unique_id=f"HHf_{new_instance.unique_id}", model=self, market=new_instance.village.market,
+                                 village=new_instance.village)
+        new_instance.firm = firm
+        new_instance.employer = firm
+
+      else:
+        new_instance.firm = None
+        new_instance.employer = None
+
       hh_lst.append(new_instance)
       hh.pos = (hh.village.pos[0] + np.random.uniform(-0.0003, 0.0003), # pos is a tuple of shape (lat, lon) as used for continuous_grid in mesa
                 hh.village.pos[1] + np.random.uniform(-0.0003, 0.0003)) 
@@ -434,12 +448,26 @@ class Sugarscepe(mesa.Model):
     for mk in mk_shuffle:
       mk.step() # resets costumers list to []
 
-    # for data collector to track the number of steps
+    # collect data
     self.datacollector.collect_data()
 
+    # for data collector to track the number of steps
     self.schedule.steps += 1 
-    # collect data
-  
+
+    # Conduct the intervention at step 200
+    if self.schedule.steps%200 == 0:
+      self.intervention(1000)
+
+
+  def intervention(self, amount):
+    """
+    Type:        Method
+    Description: Simulates the unconditional cash transfer
+    """
+    for agent in self.all_agents:
+      agent.income += amount
+
+
   def run_simulation(self, steps):
     """
     Type:        Method
@@ -459,15 +487,16 @@ class Sugarscepe(mesa.Model):
     return f'N Households: {len(self.all_agents)} \nN Firms: {len(self.all_firms)} \nN Villages: {len(self.all_villages)}\nN Markets: {len(self.all_markets)}'
 
 
-def run_simulation(steps = 1000):
+def run_simulation(steps = 100):
   start = timeit.default_timer()
 
   model = Sugarscepe()
   model.run_simulation(steps)
   print(model)
   hh_data, fm_data, md_data, _ = model.datacollector.get_data()
-  print(md_data[['step','average_stock', 'unemployment_rate', 'average_income', 'average_price', 
-                'trade_volume', 'no_worker_found', 'no_dealer_found', 'demand_satisfied', 'worker_fired']].head(steps))
+  print(md_data.columns)
+  print(md_data[['average_stock', 'unemployment_rate', 'average_income', 'average_price', 
+                'trade_volume', 'no_worker_found', 'no_dealer_found', 'worker_fired']].head(steps))
   
   
   #print(fm_data[fm_data['step'] == 146][['stock', 'sales', 'price', 'costumers', 'employees']].head(250))

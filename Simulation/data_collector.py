@@ -1,6 +1,7 @@
 import pandas as pd
+import numpy as np
 
-#@TODO make both collectors more sparse once known what data is
+
 class Datacollector():
   """
   Type:        Helper Class 
@@ -31,17 +32,18 @@ class Datacollector():
                   for agent in self.model.all_agents]
     
     firm_data = [(step, firm.unique_id, firm.stock, firm.price, firm.money, firm.output, firm.sales, firm.price * firm.sales,
-                  len(firm.employees), len(set(firm.costumers)))
+                  len(firm.employees))
                  for firm in self.model.all_firms]
     
     # Create a Pandas DataFrames from the list comprehensions
     df_hh_new = pd.DataFrame(agent_data, columns=['step','unique_id', 'village_id', 'lat', 'lon', "income", "best_dealers", "consumption", "money", 
                                                   "demand", 'employer', 'owns_firm'])
-    df_fm_new = pd.DataFrame(firm_data, columns=['step', 'unique_id', 'stock', 'price', 'money', 'output', 'sales', 'revenue', 'employees', 
-                                                 'costumers'])
+    df_fm_new = pd.DataFrame(firm_data, columns=['step', 'unique_id', 'stock', 'price', 'money', 'output', 'sales', 'revenue', 'employees'])
  
      # Create a Pandas Dataframe from model data and reset their values
     df_md_new = {'step': step, 'no_worker_found': self.no_worker_found, 'no_dealer_found': self.no_dealer_found, 'worker_fired': self.worker_fired}
+    
+    # reset flow variables
     self.no_dealer_found = 0
     self.no_worker_found = 0
     self.worker_fired = 0
@@ -71,27 +73,23 @@ class Datacollector():
                 df_fm[df_fm['step']==step]['stock'].mean(), 
                 df_td[df_td['step']==step]['amount'].sum(), 
                 (sum(1 for item in df_hh[df_hh['step'] == step]['employer']  if item == None) / len(self.model.all_agents)),
-                df_hh.loc[(df_hh.step==step)]['income'].mean(), #& (pd.isna(df_hh.owns_firm)
+                df_hh.loc[(df_hh.step==step) & (pd.isna(df_hh.owns_firm))]['income'].mean(),
                 df_td[df_td['step']==step]['price'].mean(), 
                 df_td[df_td['step']==step]['volume'].sum(),
                 # @TODO make this directly in collector to find fiv by zero
-                #df_td[df_td['step']==step]['amount'].sum() / 
-                (df_hh[df_hh['step']==step]['demand'].sum()/7),
+                df_td[df_td['step']==step]['amount'].sum() / (df_hh[df_hh['step']==step]['demand'].sum()/7),
                 df_fm[df_fm['step']==step]['output'].sum())
                 for step in range(self.model.schedule.steps + 1)]
     
     # Create a Pandas DataFrames from the list comprehensions
-    df_md2 = pd.DataFrame(sm_data, columns=['step','total_output', 'average_employees', 'average_stock', 'total_sales', 'unemployment_rate',
-                                            'average_income', 'average_price', 'trade_volume', 'demand_satisfied', 'output'])
-    
+    df_md2 = pd.DataFrame(sm_data, columns=['step','total_output', 'average_employees', 'average_stock', 'total_sales', 
+                                            'unemployment_rate', 'average_income', 'average_price', 'trade_volume', 
+                                            'demand_satisfied', 'output'])
     # Put all model level data into one dataframe
     df_md = pd.merge(df_md1, df_md2, on='step')
 
     return df_hh, df_fm, df_md, df_td
   
-
-
-
 
 class Sparse_collector():
   """
@@ -114,42 +112,40 @@ class Sparse_collector():
     Description:  Stores data generated in a given step as a pandas df
     """
     self.td_data = []
-
-    # collect hh and firm data for the current step
-    step = self.model.schedule.steps
-
-    agent_data = [(step, agent.unique_id, agent.village.unique_id, agent.pos[0], agent.pos[1], agent.income, agent.best_dealers,
-                   agent.consumption, agent.money, agent.demand, agent.employer, agent.firm)
-                  for agent in self.model.all_agents]
-    
-    firm_data = [(step, firm.unique_id, firm.stock, firm.price, firm.money, firm.output, firm.sales, firm.price * firm.sales,
-                  len(firm.employees), len(set(firm.costumers)))
-                 for firm in self.model.all_firms]
-    
-    # Create a Pandas DataFrames from the list comprehensions
-    df_hh = pd.DataFrame(agent_data, columns=['step','unique_id', 'village_id', 'lat', 'lon', "income", "best_dealers", "consumption", "money", 
-                                              'demand', 'employer', 'owns_firm'])
-    
-    df_fm = pd.DataFrame(firm_data, columns=['step', 'unique_id', 'stock', 'price', 'money', 'output', 'sales', 'revenue', 'employees', 
-                                             'costumers'])
- 
-    # Create a Pandas Dataframe from model data and reset their values
-    df_md = {'step': step, 'no_worker_found': self.no_worker_found, 'no_dealer_found': self.no_dealer_found, 'worker_fired': self.worker_fired}
-    self.no_dealer_found = 0
-    self.no_worker_found = 0
-    self.worker_fired = 0
-
-    # Get summary statistics from the dataframes
-    sm_data = [(step,  
-                df_fm[df_fm['step']==step]['stock'].mean(), 
-                (sum(1 for item in df_hh[df_hh['step'] == step]['employer']  if item == None) / len(self.model.all_agents)),
-                df_hh.loc[(df_hh.step==step)]['income'].mean())]
-    
-    # Create a Pandas DataFrames from the list comprehensions
-    df_sm = pd.DataFrame(sm_data, columns=['step','average_stock','unemployment_rate','average_income'])
-    self.data.append(df_sm)
-  
+    return
       
-  def get_data(self):
+  def get_data(self, step):
     df_sm = pd.concat(self.data, axis=0)
     return df_sm
+  
+  def get_calibration_data(self):
+    # @TODO add
+    # Total output 
+    # Gini coefficient
+    # Income if measured in data?
+    # wage
+
+    hh_data = [(hh.employer, hh.demand, hh.income) 
+                for hh in self.model.all_agents]
+    
+    fm_data = [(firm.stock, firm.profit, firm.price * firm.sales, len(firm.employees))
+                for firm in self.model.all_firms]
+    
+    df_hh = pd.DataFrame(hh_data, columns=['employer', 'consumption', 'income'])
+    
+    df_fm = pd.DataFrame(fm_data, columns=['stock', 'profit', 'revenue', 'employees'])
+
+    sm_data = [((sum(1 for item in df_hh['employer']  if item == None) / len(self.model.all_agents)), # umemployment_rate
+                df_fm['employees'].mean(),    # employees average
+                df_fm['employees'].var(),     # employees variance
+                df_fm['profit'].mean(),       # profit averag
+                df_fm['profit'].var(),        # profit variance
+                df_fm['revenue'].mean(),      # revenue average
+                df_fm['revenue'].var(),       # revenue variance
+                df_fm['stock'].mean(),        # stock average 
+                df_fm['stock'].var(),         # stock variance
+                df_hh['consumption'].mean(),  # consumption averrage
+                df_hh['consumption'].var())]  # consumption variance
+    
+    return np.array(sm_data).flatten(), df_hh, df_fm
+

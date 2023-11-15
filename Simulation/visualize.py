@@ -17,6 +17,7 @@ np.random.seed(0)
 # only run model when update on step number
 # add more info on node hover
 # add 3D plot
+# Preload the model
 
 def create_circle_coordinates(N, radius):
     """

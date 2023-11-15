@@ -1,3 +1,4 @@
+#%%
 import torch
 import torch.nn as nn
 import numpy as np
@@ -11,24 +12,25 @@ import timeit
 import arviz as az
 import dill
 from scipy.stats import multivariate_normal
-from geomloss import SamplesLoss 
 
 # Parameters to be calibrated
+#====================================
 # theta: probability for price change
-# nu:    rate for price change
+# nu   : rate for price change
 # phi_l: lower inventory rate 
 # phi_u: uper inventory rate 
-data = {'Type': ['fm', 'fm', 'fm', 'fm', 'hh'], 
-        'Name': ['theta', 'nu', 'phi_l', 'phi_u', 'alpha'],
-        'Bounds': [(0,1), (0.05, 0.5), (0.05, 0.5), (0.5, 1), (0,1)]} 
+#
+# alpha: cobb douglas demand parameter
+# shape: parameter for gamma distribution (employee productivity)
+# scale: parameter for gamme distribution (employee productivity)
+data = {'Type': ['fm', 'fm', 'fm', 'fm', 'hh', 'hh', 'hh'], 
+        'Name': ['theta', 'nu', 'phi_l', 'phi_u', 'alpha', 'mu', 'sigma'],
+        'Bounds': [(0,1), (0.05, 0.5), (0.05, 0.5), (0.5, 1.5), (0,1), (0,2), (2,4)]} 
   
 # Create DataFrame 
 df_para = pd.DataFrame(data) 
 
-# Summary statistics to be validated against
-calibration_features = ['average_stock', 'unemployment_rate', 'average_income']
-y = torch.tensor([8633.905329, 0.320321, 1784.718346]) # after 100 steps @ DETELE solve this using a regular model run 
-
+true_thetas = torch.tensor([0.8, 0.3, 0.1, 1, 0.8, 1, 2], dtype=torch.float32)
 
 class Model(ABM.Sugarscepe):
   """
@@ -93,7 +95,7 @@ def create_sample_parameters(parameters, m):
     return draws
 
 
-def create_dataset(model_runs, model_steps):
+def create_dataset(model_runs, model_steps, model_r):
   """
   Type:        Function
   Description: Crates the training data for the DNN 
@@ -104,18 +106,18 @@ def create_dataset(model_runs, model_steps):
     dill.dump(simulation, file)
 
   # create 2**model_runs theta values
-  draws = create_sample_parameters(df_para, model_runs)
-
+  draws = create_sample_parameters(df_para, model_runs) 
+  draws = np.concatenate([draws] * model_r, axis=0)  
+  
   # create a list of dictionaries; each dictionary corresponds to one sample
   parameter_names = df_para['Name'].tolist()
-  samples = [dict(zip(parameter_names, draw)) for draw in draws]
+  samples = [dict(zip(parameter_names, draw)) for draw in draws] 
   
   # run the model for each parameter sample generated
   # @Question run it for each sample more than once?
   x = []
   for i, sample in enumerate(samples):
     start = timeit.default_timer()
-
     # load a copy of the initial state of the simulation 
     with open('../data/model_data/simulation_initial_state.dill', 'rb') as file:
       sim_copy = dill.load(file)
@@ -127,13 +129,11 @@ def create_dataset(model_runs, model_steps):
     sim_copy.run_simulation(model_steps)
 
     # get the x vector i.e. the desired summary statistics
-    df_sm = sim_copy.datacollector.get_data()
-    df_sm = df_sm[df_sm['step']==model_steps-1]
-    x.append(df_sm[calibration_features].values.flatten().tolist())
-    
+    ABM_output, _, _ = sim_copy.datacollector.get_calibration_data()
+    x.append(ABM_output)
     end = timeit.default_timer()
     print(f"\rSimulating step: {i + 1} ({round((i + 1)*100/len(samples), 0)}% complete) time: {round(end-start, 3)}", end="", flush=True)
-    
+
   print("\n")
 
   # Create a troch tensor from the sample parameter values, theta, and the output vectors, x
@@ -144,13 +144,13 @@ def create_dataset(model_runs, model_steps):
   dataset = TensorDataset(theta, x) 
 
   # Save the dataset as a file
-  with open('../data/model_data/data_loader0.dill', 'wb') as file:
+  with open('../data/model_data/data_loader1.dill', 'wb') as file:
     dill.dump(dataset, file)
 
   return dataset
 
 
-def create_dataloader(model_runs, model_steps, batch_size, load):
+def create_dataloader(model_runs, model_steps, batch_size, load, model_r):
   """
   Type:        Function
   Description: Creates a pytorch dataloader from a dataset 
@@ -160,14 +160,14 @@ def create_dataloader(model_runs, model_steps, batch_size, load):
   # note: the size of the dataset will not necessarily match the size specified in m
   if load == True:
     # To load the dataset from the saved file
-    with open('../data/model_data/data_loader0.dill', 'rb') as file:
+    with open('../data/model_data/data_loader1.dill', 'rb') as file:
         loaded_dataset = dill.load(file)
     
     dataset = loaded_dataset
   
   # if load == False a new dataset is created in 'create_dataset()'
   else:
-    dataset = create_dataset(model_runs, model_steps)
+    dataset = create_dataset(model_runs, model_steps, model_r)
 
   # Split the dataset into training and testing sets
   total_samples = len(dataset)
@@ -185,10 +185,10 @@ def create_dataloader(model_runs, model_steps, batch_size, load):
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Using {device} device")
 
-epochs = 200
+epochs = 1000
 I = df_para.shape[0]  # input size
-O = len(y) # output size
-eta = 0.001 # learning rate
+O =  11 # output size = nr of summary statistics
+eta = 0.0001 # learning rate
 
 def hyperparameter_tuning():
   """
@@ -197,7 +197,7 @@ def hyperparameter_tuning():
   References:  https://pytorch.org/tutorials/beginner/hyperparameter_tuning_tutorial.html
   """
   # @TODO try:
-  # Batch normalization layer
+  # Batch normalization layer: how? doesnt agree with rejection abc
   # Adaptive laerning rate
   # Node size
   # transform in dataloader?
@@ -212,10 +212,10 @@ class Surrogate(nn.Module):
             nn.Linear(I, 100),
             nn.Linear(100, 100),
             nn.ReLU(),
-            nn.Dropout(0.2), 
+            nn.Dropout(0.1), 
             nn.Linear(100, 100),
             nn.ReLU(),
-            nn.Dropout(0.2),
+            nn.Dropout(0.1),
             nn.Linear(100, O),
         )
 
@@ -283,7 +283,7 @@ def train(train_loader, test_loader, model, loss_fn, optimizer, epochs):
   plot_losses(train_losses, test_losses)
 
 # get train and test data as dataloaders
-train_loader, test_loader = create_dataloader(model_runs=4, model_steps=100, batch_size=12, load=True)
+train_loader, test_loader = create_dataloader(model_runs=6, model_steps=100, batch_size=12, model_r=3, load=True)
 
 # Instantiate network with MSE loss and Adam optimizer
 surrogate = Surrogate().to(device)
@@ -300,12 +300,6 @@ def calculate_L2(x, y):
    """
    return torch.norm(x - y, 2).item()
 
-def wasserstein_distance(x, y):
-  print(x)
-  wd = SamplesLoss(loss="sinkhorn", p=2, blur=.05)
-  return wd(x, y)  
-
-
 def rejection_abc(y, surrogate):
   """
   Type:        Function 
@@ -316,66 +310,80 @@ def rejection_abc(y, surrogate):
   
   # for each theta, predict the x vectors using the surrogate and calculate the corresponding mse
   samples = []
-  for draw in draws:
-     draw = torch.Tensor(draw)
-     x_pred = surrogate(draw)
-     wd = wasserstein_distance(x_pred, y)
-     samples.append((draw, x_pred, wd))
+  surrogate.eval()
 
-  # keep the 0.1% of the x-predictions most close to the actually observed outcome
+  for draw in draws:
+    with torch.no_grad():
+      draw = torch.tensor(draw, dtype=torch.float32) #.unsqueeze(0)
+      x_pred = surrogate(draw)
+      mse = calculate_L2(x_pred, y)
+    samples.append((draw, x_pred, mse))
+
+  # order the list in descending order and keep the 0.1% of the x-predictions most close to the actually observed outcome
   samples = sorted(samples, key=lambda sample : sample[2])
-  selected_samples = samples[:int(len(samples) * 0.01)]
+  selected_samples = samples[:int(len(samples) * 0.001)]
   best_guess = min(selected_samples, key=lambda x: x[2])
 
+  # get theta values and convert them into an np.array
   selected_thetas = [sample[0].cpu().data.numpy() for sample in selected_samples]
+  #return selected_thetas, best_guess
 
   observations = np.vstack(selected_thetas)
 
   # Initialize the proposal distribution https://people.eecs.berkeley.edu/~jordan/sail/readings/andrieu-thoms.pdf
-  cov_matrix = cov_matrix = np.cov(observations, rowvar=False)*0.001#0.1 * np.eye(df_para.shape[0]) 
+  cov_matrix = np.cov(observations, rowvar=False)*0.01#0.1 * np.eye(df_para.shape[0]) 
   mean_values = np.mean(observations, axis=0)
   proposal_dist = multivariate_normal(mean=mean_values, cov=cov_matrix)
 
   # Set the threshhold to the best guess
-  epsilon = best_guess[2]
+  epsilon = best_guess[2]#selected_samples[int(len(selected_samples) * 0.01)][2]
 
   # plot the posterior density
   ABC_MCMC = []
   i = 0
-  while len(ABC_MCMC) < 100:
-    proposed_theta = torch.Tensor(proposal_dist.rvs(size=1))
-    x_pred = surrogate(proposed_theta)
-    wd = wasserstein_distance(x_pred, y)
-    if wd < epsilon:
-      ABC_MCMC.append(proposed_theta)
-      proposal_dist = multivariate_normal(mean=proposed_theta, cov=cov_matrix)
-      print(len(ABC_MCMC))
-    i+= 1
-    print(f'\r Trials{i}. Found {len(ABC_MCMC)}' , flush=True, end='')
+  mse_min = best_guess[2]
+  while len(ABC_MCMC) < 250:
+    with torch.no_grad():
+      proposed_theta = torch.Tensor(proposal_dist.rvs(size=1)) # .unsqueeze(0)
+      x_pred = surrogate(proposed_theta)
+      mse = calculate_L2(x_pred, y)
 
-  return ABC_MCMC
+      if mse < epsilon:
+        ABC_MCMC.append(proposed_theta)
+        proposal_dist = multivariate_normal(mean=proposed_theta, cov=cov_matrix)
 
+        if mse < mse_min:
+          best_guess = (proposed_theta, x_pred, mse)
+      i+= 1
+      print(f'\r Trials{i}. Found {len(ABC_MCMC)}' , flush=True, end='')
 
-def plot_distributions(selected_thetas):
-  for i, parameter in enumerate(df_para['Name'].tolist()):
-    data = np.array([theta[i] for theta in selected_thetas])
-
-    axes = az.plot_dist(data, rug=True, quantiles=[.05, .5, .95])
-    fig = axes.get_figure()
-    fig.suptitle(f"Density Intervals for {parameter}")
-
-    plt.show()
-
-    quantiles = [np.quantile(data, .05), np.quantile(data, .5), np.quantile(data, .95)] 
-    print(quantiles)
+  return ABC_MCMC, best_guess
 
 
+def plot_distributions(estimated_thetas, true_thetas):
+  fig, ax = plt.subplots(ncols=1, nrows=7, constrained_layout=True)
 
-test_theta = torch.tensor([[0.8, 0.3, 0.1, 1, 0.5]])
-x_pred = surrogate(test_theta)
-#print(list(x_pred))
-#print(y)
-#best_guess = rejection_abc(y, surrogate) 
-#print(best_guess)
-thetas = rejection_abc(y, surrogate)
-plot_distributions(thetas)
+  # create a distribution plot for each theta
+  for i, parameter in enumerate(df_para['Name'].values):
+    az.plot_dist( [theta[i] for theta in estimated_thetas], ax=ax[i], label="Surrogate Output", rug = True, color='#0E7580', quantiles=[.05, .5, .95] )
+    # Add true value as line, labels, title and legend 
+    ax[i].axvline(x=true_thetas[i], color='#800E0E', linestyle='--', label='Vertical Line at 0')
+    ax[i].set_xlabel("Value")
+    ax[i].set_ylabel("Density")
+    ax[i].set_title(f"Kernel Density {parameter}")
+    ax[i].legend()
+
+  # Show the plot
+  plt.show()
+
+m = Model()
+m.run_simulation(100)
+y, _, _ = m.datacollector.get_calibration_data()
+y = torch.tensor(y, dtype=torch.float32)
+
+estimated_thetas, best_guess = rejection_abc(y, surrogate)
+print(f'true theta: {true_thetas}')
+print(f'estimated theta: {best_guess[0]}')
+
+plot_distributions(estimated_thetas, true_thetas)
+# %%
