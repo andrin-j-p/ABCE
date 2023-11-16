@@ -16,9 +16,9 @@ pd.set_option('expand_frame_repr', False)
 pd.set_option('display.width', 10000)
 #%%
 
-itr = pd.read_stata('../data/var_description/GE_Enterprise_ECMA.dta', iterator=True)
+itr = pd.read_stata('../data/raw_data/GE_HH-ENT_Baseline_Combined.dta', iterator=True)
 dct = itr.variable_labels()
-f = open("var_des_ent_ECMA.txt", "w")
+f = open("var_des_GE_HH-ENT_Baseline_Combined.txt", "w")
 f.write("{\n")
 for k in dct.keys():
     f.write("'{}':'{}'\n".format(k, dct[k]))
@@ -96,4 +96,22 @@ b = np.array(a)
 result_array = np.concatenate([b] * 2, axis=0)
 
 print(result_array)
+# %%
+
+def plot_dist(data, title):
+  az.style.use("arviz-doc")
+
+  fig, ax = plt.subplots()
+  az.plot_dist(data, ax=ax, label="Observed Data", rug = True, quantiles=[0.05, 0.5, 0.95], rug_kwargs={'space':0.1})
+  # Add labels, title, legend, etc.
+  ax.set_ylabel("Density")
+  ax.set_xlabel("Value")
+  ax.set_title(f"Kernel Density {title}")
+  ax.legend()
+
+  # Show the plot
+  plt.show()
+
+data = (np.random.lognormal(0.1, 0.5, size=1000)/4 + 1) 
+plot_dist(data, 'test')
 # %%

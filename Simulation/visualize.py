@@ -171,6 +171,15 @@ def update_graph(option_slctd):
         },
         margin={"l": 0, "r": 0, "t": 0, "b": 0},
     )
+    fig1.add_trace(
+        go.Scattermapbox(
+            name='flow1',
+            lon = [134.340916, -3.704239],
+            lat = [-25.039402, 40.415887],
+            mode = 'lines',
+            line = dict(width = 8,color = 'green')
+        )
+)
 
     fig1.update_traces(visible=True)
 

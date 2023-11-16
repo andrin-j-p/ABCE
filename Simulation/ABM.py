@@ -25,14 +25,17 @@ class Firm(mesa.Agent):
   # @Concept to reduce variable amount!!! 
   def __init__(self, unique_id, model, market, village):
     super().__init__(unique_id, model)
+    # calibraiton variables
+    self.mu = 0.1
+    self.sigma = 0.4
     # firm properties
     self.id = unique_id
     self.owner = None
     self.market = market
     self.village = village
-    self.productivity = 2#np.random.uniform(1.5, 2.5) # @Calibrate: main variable. To tune owner income i.e. self.money
+    self.productivity = float(np.random.lognormal(self.mu, self.sigma, size=1) + 1) #np.random.uniform(1.5, 2.5) # @Calibrate: main variable. To tune owner income i.e. self.money
     # price
-    self.price = np.random.uniform(1, 10) # price in current month (initialized randomly)
+    self.price = np.random.uniform(1, 5) # price in current month (initialized randomly)
     self.marginal_cost = 1 # @CALIBRATE: if necessary
     self.max_price = 11 #@ set to reasonable value
     self.theta = 0.8 # probability for price change
@@ -43,12 +46,13 @@ class Firm(mesa.Agent):
     # inventory 
     self.min_stock = 0 # 10% percent of last months sales @TODO perishable?
     self.max_stock = 0 # 150% percent of last months sales 
-    self.stock = 3000
+    self.stock = 300
     self.output = 0 # quantity produced this month
     self.sales = 0  # quantity sold this month
     # profit
     self.money = 0
     self.profit = 0
+    self.revenue = 0
 
     #@DELETE
     self.costumers = []
@@ -84,7 +88,7 @@ class Firm(mesa.Agent):
     Execute:     Monthly 
     """
     # Output is a function of employees' and firms' productivity parameters
-    amount = self.productivity * (sum(employee.productivity for employee in self.employees) +100 ) #+ self.owner.productivity)
+    amount = self.productivity * (sum(employee.productivity for employee in self.employees)  + self.owner.productivity)
     self.output += amount
     self.stock += amount
     self.money -= amount * self.marginal_cost
@@ -128,7 +132,7 @@ class Firm(mesa.Agent):
     for employee in self.employees:
       # productivity is observed imperfectly. Wages are thus fluctuating 10% above and below actual productivity
       prod = employee.productivity
-      wage = prod + np.random.uniform(prod - (prod * 10 /100), prod + (prod *10/100))
+      wage = prod + np.random.uniform(prod - (prod /10), prod + (prod /10))
       self.money -= wage
       employee.money += wage
       employee.income = wage 
@@ -137,7 +141,7 @@ class Firm(mesa.Agent):
     self.profit = 0.7 * self.money
     self.money -= self.profit
     self.owner.money += 0
-    self.owner.income += 0
+    self.owner.income = self.owner.productivity
       
   def step(self):
     """
@@ -173,8 +177,8 @@ class Agent(mesa.Agent):
     super().__init__(unique_id, model)
     # parameters to be calibrated
     self.alpha = 0.8 # propensity to consume
-    self.mu = 2
-    self.sigma = 1
+    self.mu = 2.2
+    self.sigma = 0.8
 
     # initialize geo-related characteristics
     self.village = village
@@ -183,11 +187,11 @@ class Agent(mesa.Agent):
                 self.village.pos[1] + np.random.uniform(-0.0003, 0.0003)) # it is randomly clustered around the village the agent belongs to
     
     # initialize other hh characteristics
-    self.income = float(np.random.lognormal(self.mu, self.sigma, size=1)*6)
+    self.income = float(np.random.lognormal(self.mu, self.sigma, size=1)*5)
     self.firm = firm 
     self.employer = employer
     self.best_dealers = []
-    self.productivity = self.income 
+    self.productivity = float(np.random.lognormal(self.mu, self.sigma, size=1))
     # initialize consumption related characteristics
     # @Extension: four categories:Food,Livestock, Non-Food Non-Durables, Durables, Temptation Goods
     # @Extension: distinguish between perishable and non-perishable good
@@ -195,7 +199,6 @@ class Agent(mesa.Agent):
     self.best_dealer_price = 1000 # agent remembers price of best dealer last week
     self.money = 1000 # for initial value estimate / retrive from data 
     self.demand = 1 if self.income < 0 else pow(self.income, self.alpha) # @basic needs @TODO make dependent on hh size
-    self.consumption = 0 
 
   def find_dealer(self):
     """
@@ -251,7 +254,6 @@ class Agent(mesa.Agent):
     
     # change the affected demand side variables
     self.money = self.money - total_price
-    self.consumption + self.demand
 
     # change the affected supply side variables
     dealer.stock -= self.demand
@@ -316,7 +318,7 @@ class Sugarscepe(mesa.Model):
   Type:         Mesa Model Class
   Description:  Main Class for the simulation
   """
-  def __init__(self, min_lat=-0.05 , max_lat=0.25, min_lon=34.00, max_lon=34.5, N=30000):
+  def __init__(self, min_lat=-0.05 , max_lat=0.25, min_lon=34.00, max_lon=34.5, N=53000):
     print('init was called')
 
     # confine the geographic space of the grid to the study area
@@ -360,11 +362,11 @@ class Sugarscepe(mesa.Model):
 
     # create N additional, syntetic hhs based on randomly chosen, existing hhs
     # Note: all syntetic hh have positive income: asserts that only firm owners can have non-positive income
-    templates = np.random.choice([hh for hh in hh_lst if hh.income > 0], size=self.N, replace=True)
+    templates = np.random.choice([hh for hh in hh_lst], size=self.N, replace=True)
     for i, hh in enumerate(templates):
       new_instance = copy.copy(hh)
       new_instance.unique_id = f"HHS{i}_{hh.unique_id}"
-      if np.random.random() < 0.5:
+      if np.random.random() < 0.4:
         firm = Firm(unique_id=f"HHf_{new_instance.unique_id}", model=self, market=new_instance.village.market,
                                  village=new_instance.village)
         new_instance.firm = firm
@@ -454,9 +456,9 @@ class Sugarscepe(mesa.Model):
     # for data collector to track the number of steps
     self.schedule.steps += 1 
 
-    # Conduct the intervention at step 200
-    if self.schedule.steps%200 == 0:
-      self.intervention(1000)
+    ## Conduct the intervention at step 200
+    #if self.schedule.steps%200 == 0:
+    #  self.intervention(1000)
 
 
   def intervention(self, amount):
@@ -487,19 +489,17 @@ class Sugarscepe(mesa.Model):
     return f'N Households: {len(self.all_agents)} \nN Firms: {len(self.all_firms)} \nN Villages: {len(self.all_villages)}\nN Markets: {len(self.all_markets)}'
 
 
-def run_simulation(steps = 100):
+def run_simulation(steps = 200):
   start = timeit.default_timer()
 
   model = Sugarscepe()
   model.run_simulation(steps)
   print(model)
   hh_data, fm_data, md_data, _ = model.datacollector.get_data()
-  print(md_data.columns)
   print(md_data[['average_stock', 'unemployment_rate', 'average_income', 'average_price', 
-                'trade_volume', 'no_worker_found', 'no_dealer_found', 'worker_fired']].head(steps))
+                'trade_volume', 'no_worker_found', 'no_dealer_found', 'worker_fired', ]].head(steps))
   
   
-  #print(fm_data[fm_data['step'] == 146][['stock', 'sales', 'price', 'costumers', 'employees']].head(250))
   stop = timeit.default_timer()
   print('Time: ', stop - start)  
   return model

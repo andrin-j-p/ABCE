@@ -188,7 +188,7 @@ print(f"Using {device} device")
 epochs = 1000
 I = df_para.shape[0]  # input size
 O =  11 # output size = nr of summary statistics
-eta = 0.0001 # learning rate
+eta = 0.001 # learning rate
 
 def hyperparameter_tuning():
   """
@@ -283,7 +283,7 @@ def train(train_loader, test_loader, model, loss_fn, optimizer, epochs):
   plot_losses(train_losses, test_losses)
 
 # get train and test data as dataloaders
-train_loader, test_loader = create_dataloader(model_runs=6, model_steps=100, batch_size=12, model_r=3, load=True)
+train_loader, test_loader = create_dataloader(model_runs=7, model_steps=100, batch_size=24, model_r=5, load=True)
 
 # Instantiate network with MSE loss and Adam optimizer
 surrogate = Surrogate().to(device)
