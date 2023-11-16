@@ -33,13 +33,13 @@ class Firm(mesa.Agent):
     self.owner = None
     self.market = market
     self.village = village
-    self.productivity = float(np.random.lognormal(self.mu, self.sigma, size=1) + 1) #np.random.uniform(1.5, 2.5) # @Calibrate: main variable. To tune owner income i.e. self.money
+    self.productivity = 2 #float(np.random.lognormal(self.mu, self.sigma, size=1)/4 + 1) #np.random.uniform(1.5, 2.5) # @Calibrate: main variable. To tune owner income i.e. self.money
     # price
-    self.price = np.random.uniform(1, 5) # price in current month (initialized randomly)
+    self.price = np.random.uniform(1, 10) # price in current month (initialized randomly)
     self.marginal_cost = 1 # @CALIBRATE: if necessary
     self.max_price = 11 #@ set to reasonable value
     self.theta = 0.8 # probability for price change
-    self.nu = 0.3 # rate for price change @Calibrate: if necessary 
+    self.nu = 0.5 # rate for price change @Calibrate: if necessary 
     self.phi_l = 0.1 # phi_l * sales = minimal stock
     self.phi_u = 1 # phi_u * sales = max stock for 
     self.employees = [] 
@@ -51,6 +51,7 @@ class Firm(mesa.Agent):
     self.sales = 0  # quantity sold this month
     # profit
     self.money = 0
+    self.assets = 0
     self.profit = 0
     self.revenue = 0
 
@@ -91,7 +92,6 @@ class Firm(mesa.Agent):
     amount = self.productivity * (sum(employee.productivity for employee in self.employees)  + self.owner.productivity)
     self.output += amount
     self.stock += amount
-    self.money -= amount * self.marginal_cost
     
   def set_labor(self):
     """
@@ -133,15 +133,34 @@ class Firm(mesa.Agent):
       # productivity is observed imperfectly. Wages are thus fluctuating 10% above and below actual productivity
       prod = employee.productivity
       wage = prod + np.random.uniform(prod - (prod /10), prod + (prod /10))
+      if wage < 0:
+        print('WTF')
       self.money -= wage
       employee.money += wage
       employee.income = wage 
 
     # Pay owner based on profits
-    self.profit = 0.7 * self.money
-    self.money -= self.profit
-    self.owner.money += 0
-    self.owner.income = self.owner.productivity
+    self.profit = self.money
+    self.money  = 0
+
+    # 
+    # note: Puls not minus!!!!
+    if self.profit >= 0:
+      self.assets += 0.3 * self.profit
+      self.owner.income = 0.7 * self.profit
+      self.owner.money += 0.7 * self.profit
+    
+    elif self.profit < 0 and self.assets + self.profit >= 0:
+      self.assets += self.profit
+      self.owner.income = 0.7 * self.assets
+      self.assets -= 0.7 * self.assets
+      self.owner.money += 0.7 * self.assets
+    
+    else:
+      self.assets += self.profit
+      self.owner.income = 0
+      self.owner.money += 0
+
       
   def step(self):
     """
@@ -176,9 +195,9 @@ class Agent(mesa.Agent):
   def __init__(self, unique_id, model, village, income, firm, employer):
     super().__init__(unique_id, model)
     # parameters to be calibrated
-    self.alpha = 0.8 # propensity to consume
-    self.mu = 2.2
-    self.sigma = 0.8
+    self.alpha = 0.9 # propensity to consume
+    self.mu = 3
+    self.sigma = 0.7
 
     # initialize geo-related characteristics
     self.village = village
@@ -187,18 +206,19 @@ class Agent(mesa.Agent):
                 self.village.pos[1] + np.random.uniform(-0.0003, 0.0003)) # it is randomly clustered around the village the agent belongs to
     
     # initialize other hh characteristics
-    self.income = float(np.random.lognormal(self.mu, self.sigma, size=1)*5)
+    self.income = float(np.random.lognormal(self.mu, self.sigma, size=1) + 0.1)
     self.firm = firm 
     self.employer = employer
     self.best_dealers = []
-    self.productivity = float(np.random.lognormal(self.mu, self.sigma, size=1))
+    self.productivity = float(np.random.lognormal(self.mu, self.sigma, size=1) + 0.1)
     # initialize consumption related characteristics
     # @Extension: four categories:Food,Livestock, Non-Food Non-Durables, Durables, Temptation Goods
     # @Extension: distinguish between perishable and non-perishable good
     self.market_day = np.random.randint(0, 7) # day the agent goes to market. Note: bounds are included
     self.best_dealer_price = 1000 # agent remembers price of best dealer last week
     self.money = 1000 # for initial value estimate / retrive from data 
-    self.demand = 1 if self.income < 0 else pow(self.income, self.alpha) # @basic needs @TODO make dependent on hh size
+    # If not employed never gets updated!!!!!!!!!!!!!!!
+    self.demand = 25 # @basic needs @TODO make dependent on hh size
 
   def find_dealer(self):
     """
@@ -249,11 +269,10 @@ class Agent(mesa.Agent):
     Description: Exchange of goods
     """
     # calculate the trade volume
-    price = dealer.price
-    total_price =  price * self.demand
+    total_price =  dealer.price * self.demand
     
     # change the affected demand side variables
-    self.money = self.money - total_price
+    self.money -= total_price
 
     # change the affected supply side variables
     dealer.stock -= self.demand
@@ -264,7 +283,7 @@ class Agent(mesa.Agent):
     
     # save the transaction details in the model data collector
     self.model.datacollector.td_data.append({"step": self.model.schedule.steps, "parties": (self.unique_id, dealer.owner.unique_id), 
-                                             "price": price, "amount": self.demand, "volume": total_price})
+                                             "price": dealer.price, "amount": self.demand, "volume": total_price, 'market': self.village.market})
 
   def step(self):
     # hh step only needs to be executed on market day
@@ -273,6 +292,8 @@ class Agent(mesa.Agent):
       # If there is an available dealer trade
       if dealer:
         self.trade(dealer)
+        
+    self.demand = pow(self.income, self.alpha) if self.income >= 0 else 0
 
   def __repr__(self):
     return f'Agent: {self.unique_id} at coordinates: {self.pos} in county {self.county}'
@@ -489,7 +510,7 @@ class Sugarscepe(mesa.Model):
     return f'N Households: {len(self.all_agents)} \nN Firms: {len(self.all_firms)} \nN Villages: {len(self.all_villages)}\nN Markets: {len(self.all_markets)}'
 
 
-def run_simulation(steps = 200):
+def run_simulation(steps = 400):
   start = timeit.default_timer()
 
   model = Sugarscepe()

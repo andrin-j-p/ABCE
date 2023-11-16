@@ -123,15 +123,16 @@ class Sparse_collector():
     # Income if measured in data?
     # wage
 
-    hh_data = [(hh.employer, hh.demand, hh.income, hh.productivity) 
+    hh_data = [(hh.employer, hh.firm, hh.demand, hh.income, hh.money, hh.productivity) 
                 for hh in self.model.all_agents]
     
-    fm_data = [(firm.stock, firm.profit, firm.price * firm.sales, len(firm.employees), len(firm.costumers))
+    fm_data = [(firm.stock, firm.profit, firm.price * firm.sales, firm.assets, len(firm.employees), len(firm.costumers), firm.market.unique_id, firm.price)
                 for firm in self.model.all_firms]
     
-    df_hh = pd.DataFrame(hh_data, columns=['employer', 'demand', 'income', 'productivity'])
+    df_hh = pd.DataFrame(hh_data, columns=['employer', 'firm', 'demand', 'income', 'money', 'productivity'])
     
-    df_fm = pd.DataFrame(fm_data, columns=['stock', 'profit', 'revenue', 'employees', 'costumers'])
+    df_fm = pd.DataFrame(fm_data, columns=['stock', 'profit', 'revenue', 'assets', 'employees', 
+                                           'costumers', 'market_id', 'price'])
 
     sm_data = [((sum(1 for item in df_hh['employer']  if item == None) / len(self.model.all_agents)), # umemployment_rate
                 df_fm['employees'].mean(),    # employees average

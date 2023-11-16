@@ -7,6 +7,13 @@ from data_collector import Sparse_collector
 import arviz as az
 import pandas as pd
 
+
+# @DELETE set display options. Not imperative for exectution
+pd.set_option('display.max_columns', 10)
+pd.set_option('display.max_rows', None)
+pd.set_option('expand_frame_repr', False)
+pd.set_option('display.width', 10000)
+
 class Model(ABM.Sugarscepe):
   """
   Type:        Child Class Sugarscepe
@@ -16,14 +23,7 @@ class Model(ABM.Sugarscepe):
     super().__init__()
     self.datacollector = Sparse_collector(self)
     self.data = []
-  
-  def run_simulation(self, steps):
-    """
-    Type:        Method
-    Description: Overwrite run simulaiton in parent class to avoid print statement
-    """
-    for i in range(steps):
-      self.step()
+
 
   
 def compare_dist(true, simulated, title, lim):
@@ -43,7 +43,7 @@ def compare_dist(true, simulated, title, lim):
   plt.show()
 
 
-def plot_dist(data, title):
+def plot_dist(data, title, lim):
   az.style.use("arviz-doc")
 
   fig, ax = plt.subplots()
@@ -55,6 +55,7 @@ def plot_dist(data, title):
   ax.legend()
 
   # Show the plot
+  plt.xlim(lim[0], lim[1])
   plt.show()
 
 # instantiate the model and run it for N periods
@@ -73,21 +74,18 @@ df_hh_true['p2_consumption'] = 0.01 * df_hh_true['p2_consumption']/52
 df_fm_true['prof_year'] = 0.01 * df_fm_true['prof_year']
 df_fm_true['rev_year'] = 0.01 * df_fm_true['rev_year']
 
-compare_dist(df_hh_true['p2_consumption'].values, df_hh_sim['demand'].values, 'Demand', (0, 200))
+compare_dist(df_hh_true['p2_consumption'].values, df_hh_sim['demand'].values, 'Demand', (0, 50))
 #plot_dist(df_hh_true['p3_totincome'].values, 'true income')
-plot_dist(df_hh_sim['income'].values, 'simulated income')
 #plot_dist(df_fm_sim['profit'].values, 'simulated profit')
 #plot_dist(df_fm_true['prof_year'].values, 'true profits')
 #compare_dist(df_fm_true['prof_year'].values, df_fm_sim['profit'].values, 'Profit', (-800, 2000))
-plot_dist(df_fm_sim['profit'].values, 'simulated profit')
+plot_dist(df_fm_sim['profit'].values, 'simulated profit', (-200, 200))
+plot_dist(df_fm_sim['assets'].values, 'fm assets', (-1000, 1000))
 
-# @DELETE set display options. Not imperative for exectution
-pd.set_option('display.max_columns', 10)
-pd.set_option('display.max_rows', None)
-pd.set_option('expand_frame_repr', False)
-pd.set_option('display.width', 10000)
+plot_dist(df_hh_sim['income'].values, 'hh income', (-100, 200))
+plot_dist(df_hh_sim['money'].values, 'hh money', (-5000, 4000))
 
-
+#==========================================================================
 print(f"true vs. simulated income mean: {np.mean(df_hh_true['p3_totincome']), np.mean(df_hh_sim['income'])}")
 print(f"true vs. simulated income median: {np.median(df_hh_true['p3_totincome']), np.median(df_hh_sim['income'])}")
 
@@ -95,10 +93,11 @@ print(f"true vs simulated consumption mean: {np.median(df_hh_true['p2_consumptio
 print(f"true vs simulated consumption median: {np.mean(df_hh_true['p2_consumption'].dropna().values), np.mean(df_hh_sim['demand'].values)}")
 
 print(f"simulated average profit{np.mean(df_fm_sim['profit'])}")
-print(np.sum(df_hh_true['p4_3_selfemployed']) / df_hh_true.shape[0])
-
-#print(df_fm_sim['costumers'])
 
 (sum(1 for item in df_hh_sim['employer']  if item == None) / df_hh_sim.shape[0]),
 
+# %%
+print(pd.DataFrame([row for row in df_hh_sim.itertuples() if row.money < 0 ]))
+
+#print(pd.DataFrame([row for row in df_fm_sim.itertuples() if row.costumers == 0 ]))
 # %%

@@ -217,6 +217,8 @@ class TestABM(unittest.TestCase):
         final_price = df_md_sim[df_md_sim['step'] == steps-1]['average_price'].mean()
         self.assertLess(final_price, initial_price)
 
+    def test_no_negative_income(self):
+        pass
     def test_sales_converge(self):
         pass
 

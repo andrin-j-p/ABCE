@@ -112,6 +112,6 @@ def plot_dist(data, title):
   # Show the plot
   plt.show()
 
-data = (np.random.lognormal(0.1, 0.5, size=1000)/4 + 1) 
+data = (np.random.lognormal(3.3, 0.5, size=1000) + 1) 
 plot_dist(data, 'test')
 # %%
