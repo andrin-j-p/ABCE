@@ -83,23 +83,26 @@ plot_dist(df_fm_sim['profit'].values, 'simulated profit', (-200, 200))
 plot_dist(df_fm_sim['assets'].values, 'fm assets', (-1000, 1000))
 plot_dist(df_fm_sim['stock'].values, 'fm stock', (-300, 10000))
 
-plot_dist(df_hh_sim['income'].values, 'hh income', (-100, 200))
-plot_dist(df_hh_sim['money'].values, 'hh money', (-5000, 4000))
+plot_dist(df_hh_sim['income'].values, 'hh income', (-10, 200))
+plot_dist(df_hh_sim['money'].values, 'hh money', (-50, 2000))
+
+#%%
 #==========================================================================
 print(f"true vs. simulated income mean: {np.mean(df_hh_true['p3_totincome']), np.mean(df_hh_sim['income'])}")
 print(f"true vs. simulated income median: {np.median(df_hh_true['p3_totincome']), np.median(df_hh_sim['income'])}")
 
-print(f"true vs simulated consumption mean: {np.median(df_hh_true['p2_consumption'].dropna().values), np.mean(df_hh_sim['demand'].values)}")
-print(f"true vs simulated consumption median: {np.mean(df_hh_true['p2_consumption'].dropna().values), np.mean(df_hh_sim['demand'].values)}")
+print(f"true vs simulated consumption mean: {np.mean(df_hh_true['p2_consumption'].dropna().values), np.mean(df_hh_sim['demand'].values)}")
+print(f"true vs simulated consumption median: {np.median(df_hh_true['p2_consumption'].dropna().values), np.median(df_hh_sim['demand'].values)}")
 
 print(f"simulated average profit{np.mean(df_fm_sim['profit'])}")
 
-print(sum(1 for row in df_hh_sim.itertuples()  if row.employer == None) / df_hh_sim.shape[0]),
-print(sum(1 for row in df_hh_sim.itertuples()  if row.income <= 0 and row.firm == None)),
-print(sum(1 for row in df_hh_sim.itertuples()  if row.income < 0 and row.firm == None)),
+print(f"unmeployment rate{sum(1 for row in df_hh_sim.itertuples()  if row.employer == None) / df_hh_sim.shape[0]}")
+print(f" total zero income {sum(1 for row in df_hh_sim.itertuples()  if row.income == 0)}")
+print(f"zero income no firm {sum(1 for row in df_hh_sim.itertuples()  if row.income == 0 and row.firm == None)}")
+print(f"zero income owns firm {sum(1 for row in df_hh_sim.itertuples()  if row.income == 0 and row.firm != None)}")
 
 # %%
-print(pd.DataFrame([row for row in df_hh_sim.itertuples() if row.money < 0 ]))
+print(pd.DataFrame([row for row in df_hh_sim.itertuples() if row.income == 0 ]))
 
 #print(pd.DataFrame([row for row in df_fm_sim.itertuples() if row.costumers == 0 ]))
 # %%
