@@ -47,7 +47,7 @@ def plot_dist(data, title, lim):
   az.style.use("arviz-doc")
 
   fig, ax = plt.subplots()
-  az.plot_dist(data, ax=ax, label="Observed Data", rug = True, quantiles=[0.05, 0.5, 0.95], rug_kwargs={'space':0.1})
+  az.plot_dist(data, ax=ax, label="Observed Data", rug = True, fill_kwargs={'alpha': 0.7}, rug_kwargs={'space':0.1})
   # Add labels, title, legend, etc.
   ax.set_ylabel("Density")
   ax.set_xlabel("Value")
@@ -81,10 +81,10 @@ compare_dist(df_hh_true['p2_consumption'].values, df_hh_sim['demand'].values, 'D
 #compare_dist(df_fm_true['prof_year'].values, df_fm_sim['profit'].values, 'Profit', (-800, 2000))
 plot_dist(df_fm_sim['profit'].values, 'simulated profit', (-200, 200))
 plot_dist(df_fm_sim['assets'].values, 'fm assets', (-1000, 1000))
+plot_dist(df_fm_sim['stock'].values, 'fm stock', (-300, 10000))
 
 plot_dist(df_hh_sim['income'].values, 'hh income', (-100, 200))
 plot_dist(df_hh_sim['money'].values, 'hh money', (-5000, 4000))
-
 #==========================================================================
 print(f"true vs. simulated income mean: {np.mean(df_hh_true['p3_totincome']), np.mean(df_hh_sim['income'])}")
 print(f"true vs. simulated income median: {np.median(df_hh_true['p3_totincome']), np.median(df_hh_sim['income'])}")
@@ -94,7 +94,9 @@ print(f"true vs simulated consumption median: {np.mean(df_hh_true['p2_consumptio
 
 print(f"simulated average profit{np.mean(df_fm_sim['profit'])}")
 
-(sum(1 for item in df_hh_sim['employer']  if item == None) / df_hh_sim.shape[0]),
+print(sum(1 for row in df_hh_sim.itertuples()  if row.employer == None) / df_hh_sim.shape[0]),
+print(sum(1 for row in df_hh_sim.itertuples()  if row.income <= 0 and row.firm == None)),
+print(sum(1 for row in df_hh_sim.itertuples()  if row.income < 0 and row.firm == None)),
 
 # %%
 print(pd.DataFrame([row for row in df_hh_sim.itertuples() if row.money < 0 ]))

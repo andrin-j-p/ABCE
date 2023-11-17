@@ -33,13 +33,13 @@ class Firm(mesa.Agent):
     self.owner = None
     self.market = market
     self.village = village
-    self.productivity = 2 #float(np.random.lognormal(self.mu, self.sigma, size=1)/4 + 1) #np.random.uniform(1.5, 2.5) # @Calibrate: main variable. To tune owner income i.e. self.money
+    self.productivity = 1 #float(np.random.lognormal(self.mu, self.sigma, size=1)/4 + 1) #np.random.uniform(1.5, 2.5) # @Calibrate: main variable. To tune owner income i.e. self.money
     # price
     self.price = np.random.uniform(1, 10) # price in current month (initialized randomly)
     self.marginal_cost = 1 # @CALIBRATE: if necessary
     self.max_price = 11 #@ set to reasonable value
     self.theta = 0.8 # probability for price change
-    self.nu = 0.5 # rate for price change @Calibrate: if necessary 
+    self.nu = 0.3 # rate for price change @Calibrate: if necessary 
     self.phi_l = 0.1 # phi_l * sales = minimal stock
     self.phi_u = 1 # phi_u * sales = max stock for 
     self.employees = [] 
@@ -132,9 +132,8 @@ class Firm(mesa.Agent):
     for employee in self.employees:
       # productivity is observed imperfectly. Wages are thus fluctuating 10% above and below actual productivity
       prod = employee.productivity
-      wage = prod + np.random.uniform(prod - (prod /10), prod + (prod /10))
-      if wage < 0:
-        print('WTF')
+      wage = prod 
+
       self.money -= wage
       employee.money += wage
       employee.income = wage 
@@ -143,7 +142,6 @@ class Firm(mesa.Agent):
     self.profit = self.money
     self.money  = 0
 
-    # 
     # note: Puls not minus!!!!
     if self.profit >= 0:
       self.assets += 0.3 * self.profit
@@ -195,7 +193,7 @@ class Agent(mesa.Agent):
   def __init__(self, unique_id, model, village, income, firm, employer):
     super().__init__(unique_id, model)
     # parameters to be calibrated
-    self.alpha = 0.9 # propensity to consume
+    self.alpha = 0.8 # propensity to consume
     self.mu = 3
     self.sigma = 0.7
 
@@ -206,19 +204,19 @@ class Agent(mesa.Agent):
                 self.village.pos[1] + np.random.uniform(-0.0003, 0.0003)) # it is randomly clustered around the village the agent belongs to
     
     # initialize other hh characteristics
-    self.income = float(np.random.lognormal(self.mu, self.sigma, size=1) + 0.1)
+    self.income = float(np.random.lognormal(self.mu, self.sigma, size=1) + 1)
     self.firm = firm 
     self.employer = employer
     self.best_dealers = []
-    self.productivity = float(np.random.lognormal(self.mu, self.sigma, size=1) + 0.1)
+    self.productivity = float(np.random.lognormal(self.mu, self.sigma, size=1) + 1)
     # initialize consumption related characteristics
     # @Extension: four categories:Food,Livestock, Non-Food Non-Durables, Durables, Temptation Goods
     # @Extension: distinguish between perishable and non-perishable good
     self.market_day = np.random.randint(0, 7) # day the agent goes to market. Note: bounds are included
-    self.best_dealer_price = 1000 # agent remembers price of best dealer last week
-    self.money = 1000 # for initial value estimate / retrive from data 
+    self.best_dealer_price = 10 # agent remembers price of best dealer last week
+    self.money = 100 # for initial value estimate / retrive from data 
     # If not employed never gets updated!!!!!!!!!!!!!!!
-    self.demand = 25 # @basic needs @TODO make dependent on hh size
+    self.demand = 0 # @basic needs @TODO make dependent on hh size
 
   def find_dealer(self):
     """
@@ -252,15 +250,18 @@ class Agent(mesa.Agent):
     # sort the list of dealers according to the price they offer
     self.best_dealers = sorted(self.best_dealers, key=lambda x: x.price)
     self.best_dealer_price = self.best_dealers[0].price
+    self.demand = min(pow(self.money / self.best_dealer_price, self.alpha), self.money/ self.best_dealer_price) if self.money > 0 else 0
 
-    # return the first dealer in the list which has enough of the good on stock
-    for dealer in self.best_dealers:
-      if dealer.stock >= self.demand:
-        return dealer
+    ## return the first dealer in the list which has enough of the good on stock
+    #for dealer in self.best_dealers:
+    #  if dealer.stock >= self.demand:
+    #    return dealer
+    return self.best_dealers[0]
 
     self.model.datacollector.no_dealer_found += 1
-
+    
     return False
+
 
   def trade(self, dealer):
     """
@@ -270,7 +271,10 @@ class Agent(mesa.Agent):
     """
     # calculate the trade volume
     total_price =  dealer.price * self.demand
-    
+    if self.money - total_price < 0:
+      self.demand = self.money / dealer.price
+      total_price = self.demand * dealer.price
+
     # change the affected demand side variables
     self.money -= total_price
 
@@ -293,7 +297,6 @@ class Agent(mesa.Agent):
       if dealer:
         self.trade(dealer)
         
-    self.demand = pow(self.income, self.alpha) if self.income >= 0 else 0
 
   def __repr__(self):
     return f'Agent: {self.unique_id} at coordinates: {self.pos} in county {self.county}'
@@ -387,7 +390,7 @@ class Sugarscepe(mesa.Model):
     for i, hh in enumerate(templates):
       new_instance = copy.copy(hh)
       new_instance.unique_id = f"HHS{i}_{hh.unique_id}"
-      if np.random.random() < 0.4:
+      if np.random.random() < 0.3:
         firm = Firm(unique_id=f"HHf_{new_instance.unique_id}", model=self, market=new_instance.village.market,
                                  village=new_instance.village)
         new_instance.firm = firm
@@ -487,6 +490,7 @@ class Sugarscepe(mesa.Model):
     Type:        Method
     Description: Simulates the unconditional cash transfer
     """
+    #poorest_agents = sorted(self.all_agents, lambda x: )
     for agent in self.all_agents:
       agent.income += amount
 
