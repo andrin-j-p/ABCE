@@ -83,10 +83,10 @@ plot_dist(df_fm_sim['profit'].values, 'simulated profit', (-200, 200))
 plot_dist(df_fm_sim['assets'].values, 'fm assets', (-1000, 1000))
 plot_dist(df_fm_sim['stock'].values, 'fm stock', (-300, 10000))
 
-plot_dist(df_hh_sim['income'].values, 'hh income', (-10, 200))
+plot_dist(df_hh_sim['income'].values, 'hh income', (-100, 200))
 plot_dist(df_hh_sim['money'].values, 'hh money', (-50, 2000))
 
-#%%
+
 #==========================================================================
 print(f"true vs. simulated income mean: {np.mean(df_hh_true['p3_totincome']), np.mean(df_hh_sim['income'])}")
 print(f"true vs. simulated income median: {np.median(df_hh_true['p3_totincome']), np.median(df_hh_sim['income'])}")
