@@ -33,7 +33,7 @@ class Firm(mesa.Agent):
     self.owner = None
     self.market = market
     self.village = village
-    self.productivity = 1 #float(np.random.lognormal(self.mu, self.sigma, size=1)/4 + 1) #np.random.uniform(1.5, 2.5) # @Calibrate: main variable. To tune owner income i.e. self.money
+    self.productivity = 1 
     # price
     self.price = np.random.uniform(1, 10) # price in current month (initialized randomly)
     self.marginal_cost = 1 # @CALIBRATE: if necessary
@@ -121,6 +121,7 @@ class Firm(mesa.Agent):
       # remove the fired worker from the employee list and make her available for work again
       worker_fired = self.employees.pop()
       worker_fired.employer = None
+      worker_fired.income = 0
 
   def distribute_profit(self):
     """
@@ -131,8 +132,7 @@ class Firm(mesa.Agent):
     # Pay wages based on the employees productivity 
     for employee in self.employees:
       # productivity is observed imperfectly. Wages are thus fluctuating 10% above and below actual productivity
-      prod = employee.productivity
-      wage = prod 
+      wage = employee.productivity
 
       self.money -= wage
       employee.money += wage
@@ -144,9 +144,9 @@ class Firm(mesa.Agent):
 
     # note: Puls not minus!!!!
     if self.profit >= 0:
-      self.assets += 0.3 * self.profit
-      self.owner.income = 0.7 * self.profit
-      self.owner.money += 0.7 * self.profit
+      self.assets += 0.1 * self.profit
+      self.owner.income = 0.9 * self.profit
+      self.owner.money += 0.9 * self.profit
     
     elif self.profit < 0 and self.assets + self.profit >= 0:
       self.assets += self.profit
@@ -204,19 +204,16 @@ class Agent(mesa.Agent):
                 self.village.pos[1] + np.random.uniform(-0.0003, 0.0003)) # it is randomly clustered around the village the agent belongs to
     
     # initialize other hh characteristics
-    self.income = float(np.random.lognormal(self.mu, self.sigma, size=1) + 1)
+    self.income = 0 
     self.firm = firm 
     self.employer = employer
     self.best_dealers = []
     self.productivity = float(np.random.lognormal(self.mu, self.sigma, size=1) + 1)
     # initialize consumption related characteristics
-    # @Extension: four categories:Food,Livestock, Non-Food Non-Durables, Durables, Temptation Goods
-    # @Extension: distinguish between perishable and non-perishable good
     self.market_day = np.random.randint(0, 7) # day the agent goes to market. Note: bounds are included
     self.best_dealer_price = 10 # agent remembers price of best dealer last week
     self.money = 100 # for initial value estimate / retrive from data 
-    # If not employed never gets updated!!!!!!!!!!!!!!!
-    self.demand = 0 # @basic needs @TODO make dependent on hh size
+    self.demand = 0 
 
   def find_dealer(self):
     """
@@ -256,46 +253,55 @@ class Agent(mesa.Agent):
     #for dealer in self.best_dealers:
     #  if dealer.stock >= self.demand:
     #    return dealer
-    return self.best_dealers[0]
-
-    self.model.datacollector.no_dealer_found += 1
-    
-    return False
+    return self.best_dealers
 
 
-  def trade(self, dealer):
+  def trade(self, dealer, amount):
     """
     @TODO implement partially satisfied demand see Lengnickp 109
     Type:        Method
     Description: Exchange of goods
     """
     # calculate the trade volume
-    total_price =  dealer.price * self.demand
-    if self.money - total_price < 0:
-      self.demand = self.money / dealer.price
-      total_price = self.demand * dealer.price
+    total_price =  dealer.price * amount
 
     # change the affected demand side variables
     self.money -= total_price
 
     # change the affected supply side variables
-    dealer.stock -= self.demand
-    dealer.sales += self.demand
+    dealer.stock -= amount
+    dealer.sales += amount
     dealer.money += total_price 
     #@DELETE
     dealer.costumers.append(self)
     
     # save the transaction details in the model data collector
     self.model.datacollector.td_data.append({"step": self.model.schedule.steps, "parties": (self.unique_id, dealer.owner.unique_id), 
-                                             "price": dealer.price, "amount": self.demand, "volume": total_price, 'market': self.village.market})
+                                             "price": dealer.price, "amount": amount, "volume": total_price, 'market': self.village.market})
 
   def step(self):
     # hh step only needs to be executed on market day
     if  (self.model.schedule.steps - self.market_day)%7 == 0:
-      dealer = self.find_dealer()
-      # If there is an available dealer trade
-      if dealer:
-        self.trade(dealer)
+      best_dealers = self.find_dealer()
+      demand = self.demand
+      
+      # iterate through the best dealers until demand is satisfied
+      for dealer in best_dealers:
+        
+        # if dealer doesn't have enough stock: buy all that remains
+        if dealer.stock - self.demand < 0:
+          amount = min(dealer.stock, self.money / dealer.price)
+          demand -= amount
+        else:
+          amount = min(self.demand, self.money / dealer.price)
+          demand -= amount
+        
+        self.trade(dealer, amount)
+
+        if demand == 0:
+          break
+      
+      self.model.datacollector.no_dealer_found +=1 
         
 
   def __repr__(self):
