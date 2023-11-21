@@ -229,6 +229,7 @@ def plot_losses(train_losses, test_losses):
   Description: Plots training and test losses
   """
   # @make this pretty
+  #@ plot training predicitons vs true model using test data
   plt.plot(train_losses, label='train_loss')
   plt.plot(test_losses, label='val_loss')
   plt.show()     

@@ -100,9 +100,12 @@ class Sparse_collector():
   """
   def __init__(self, model):
     self.model = model
+    self.td_data = []
     self.data = []
 
-    self.td_data = []
+    # @DELETE
+    self.quit = []
+
     self.no_worker_found = 0
     self.no_dealer_found = 0
     self.worker_fired = 0
@@ -113,7 +116,14 @@ class Sparse_collector():
     Type:         Datacollector Method
     Description:  Stores data generated in a given step as a pandas df
     """
+    step = self.model.schedule.steps
+
     self.td_data = []
+    self.data.append( {'step': step, 'no_worker_found': self.no_worker_found, 'no_dealer_found': self.no_dealer_found, 'worker_fired': self.worker_fired})
+    
+    self.no_worker_found = 0
+    self.no_dealer_found = 0
+    self.worker_fired = 0
     return
 
   def get_calibration_data(self):
@@ -126,12 +136,12 @@ class Sparse_collector():
     hh_data = [(hh.employer, hh.firm, hh.demand, hh.income, hh.money, hh.productivity) 
                 for hh in self.model.all_agents]
     
-    fm_data = [(firm.stock, firm.profit, firm.price * firm.sales, firm.assets, len(firm.employees), len(firm.costumers), firm.market.unique_id, firm.price)
+    fm_data = [(firm.unique_id, firm.stock, firm.output, firm.profit, firm.sales, firm.assets, len(firm.employees), len(firm.costumers), firm.market.unique_id, firm.price)
                 for firm in self.model.all_firms]
     
     df_hh = pd.DataFrame(hh_data, columns=['employer', 'firm', 'demand', 'income', 'money', 'productivity'])
     
-    df_fm = pd.DataFrame(fm_data, columns=['stock', 'profit', 'revenue', 'assets', 'employees', 
+    df_fm = pd.DataFrame(fm_data, columns=['id', 'stock', 'output', 'profit', 'sales', 'assets', 'employees', 
                                            'costumers', 'market_id', 'price'])
 
     sm_data = [((sum(1 for item in df_hh['employer']  if item == None) / len(self.model.all_agents)), # umemployment_rate
@@ -139,14 +149,14 @@ class Sparse_collector():
                 df_fm['employees'].var(),     # employees variance
                 df_fm['profit'].mean(),       # profit averag
                 df_fm['profit'].var(),        # profit variance
-                df_fm['revenue'].mean(),      # revenue average
-                df_fm['revenue'].var(),       # revenue variance
+                df_fm['sales'].mean(),      # revenue average
+                df_fm['sales'].var(),       # revenue variance
                 df_fm['stock'].mean(),        # stock average 
                 df_fm['stock'].var(),         # stock variance
                 df_hh['demand'].mean(),  # consumption averrage
                 df_hh['demand'].var())]  # consumption variance
     
-    step = self.model.schedule.steps
-    print(step)
-    return np.array(sm_data).flatten(), df_hh, df_fm
+
+    df_md = pd.DataFrame(self.data)
+    return np.array(sm_data).flatten(), df_hh, df_fm, df_md, self.quit
 

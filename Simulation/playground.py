@@ -26,11 +26,12 @@ f.write("}")
 f.close()
 
 # %%
-df, _, _= read_data.create_agent_data()
-
+df_hh, _, _, df_mk= read_data.create_agent_data()
+print(df_mk['location'].head())
+#%%
 # Define independent (predictor) variables and the dependent (response) variable
-X = df[["own_land_acres","h1_11_landvalue","h1_2_agtools", "h1_1_livestock", "h1_12_loans"]]
-y = df["p3_totincome"]
+X = df_hh[["own_land_acres","h1_11_landvalue","h1_2_agtools", "h1_1_livestock", "h1_12_loans"]]
+y = df_hh["p3_totincome"]
 
 # Add a constant term to the independent variables (intercept)
 X = sm.add_constant(X)
@@ -115,3 +116,55 @@ def plot_dist(data, title):
 data = (np.random.lognormal(3.3, 0.5, size=1000) + 1) 
 plot_dist(data, 'test')
 # %%
+list1 = [1,2,3]
+list2 = [4,5,6]
+l = list2 + list1
+
+print(l)
+# %%
+import matplotlib.pyplot as plt
+import networkx as nx
+from netgraph import Graph
+
+# Create a modular graph (dummy data)
+partition_sizes = [10, 20, 30, 40]
+g = nx.random_partition_graph(partition_sizes, 0.5, 0.1)
+
+
+# Create a dictionary mapping nodes to their community. 
+# This information is used position nodes according to their community 
+# when using the `community` node layout in netgraph.
+node_to_community = dict()
+node = 0
+for community_id, size in enumerate(partition_sizes):
+    for _ in range(size):
+        node_to_community[node] = community_id
+        node += 1
+
+# Color nodes according to their community.
+community_to_color = {
+    0 : 'tab:blue',
+    1 : 'tab:orange',
+    2 : 'tab:green',
+    3 : 'tab:red',
+}
+node_color = {node: community_to_color[community_id] \
+              for node, community_id in node_to_community.items()}
+
+
+fig, ax = plt.subplots()
+Graph(g,
+      node_color=node_color, # indicates the community each belongs to  
+      node_edge_width=0,     # no black border around nodes 
+      edge_width=0.1,        # use thin edges, as they carry no information in this visualisation
+      edge_alpha=0.5,        # low edge alpha values accentuates bundles as they appear darker than single edges
+      node_layout='community', node_layout_kwargs=dict(node_to_community=node_to_community),
+      ax=ax,
+)
+plt.show()
+# %%
+fig= plt.figure()
+ax= fig.add_subplot(111)
+ax.plot(range(10), [i**2 for i in range(10)])
+ax.grid(True)
+plotly_fig = mpl_to_plotly(fig)

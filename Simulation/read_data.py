@@ -123,6 +123,8 @@ def create_agent_data():
     # drop 3 agents with negative income and no firm 
     df_hh  = df_hh.drop(df_hh[df_hh['hhid_key'].isin(['601010103003-144', '601020404002-039', '601050304006-038'])].index)
     
+### Market Data
+
     # load market data
     df_mk = read_dataframe("GE_MarketData_Panel_ProductLevel_ECMA.dta", "df")
 

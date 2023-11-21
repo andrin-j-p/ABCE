@@ -219,6 +219,7 @@ class TestABM(unittest.TestCase):
 
     def test_no_negative_income(self):
         pass
+    
     def test_sales_converge(self):
         pass
 
@@ -231,6 +232,13 @@ class TestABM(unittest.TestCase):
     def test_variance_(self):
         pass
 
+    def test_no_negative_amount(self):
+        pass
+
+    def test_money_not_negative(self):
+        pass
+
+    
 
 
 
