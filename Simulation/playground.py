@@ -163,8 +163,114 @@ Graph(g,
 )
 plt.show()
 # %%
-fig= plt.figure()
-ax= fig.add_subplot(111)
-ax.plot(range(10), [i**2 for i in range(10)])
-ax.grid(True)
-plotly_fig = mpl_to_plotly(fig)
+#%%
+import plotly.graph_objects as go
+import numpy as np
+import networkx as nx
+import ABM
+import math
+
+def generate_coordinates_on_sphere(num_villages, radius):
+    coordinates = []
+    for i in range(num_villages):
+        theta = 2 * math.pi * i / num_villages
+        phi = math.pi * (i + 1) / (num_villages + 1)  # Distribute vertically
+        x = radius * math.sin(phi) * math.cos(theta)
+        y = radius * math.sin(phi) * math.sin(theta)
+        z = radius * math.cos(phi)
+        coordinates.append((x, y, z))
+    return coordinates
+
+def create_village_dictionary_on_sphere(num_villages, radius):
+
+    for i in range(num_villages):
+        village_name = f"Village_{i + 1}"
+        villages[village_name] = coordinates[i]
+
+    return villages
+
+def create_subgraph(G, in_village_nodes):
+    """
+    Type: Helper function 
+    Description: Creates a subgraph of G including all the nodes connected to the list of specified nodes
+    Used in: visualize.py callback
+    """
+    # Iterate through the specified nodes and collect their neighbors
+    subgraph_nodes = set(in_village_nodes)
+    for n in in_village_nodes:
+        subgraph_nodes.update([node for node in G.neighbors(n) if node not in in_village_nodes])        
+
+    return G.subgraph(subgraph_nodes)
+
+
+steps = 10
+model = ABM.Sugarscepe()
+model.run_simulation(steps)
+df_hh, df_fm, df_md, _= model.datacollector.get_data()
+
+G = nx.Graph()
+
+# create a list of all agents in the model
+agents_lst = list(model.all_agents)
+villages  = set([agent.village for agent in agents_lst])
+coordinates = generate_coordinates_on_sphere(len(villages), 10)
+vl_dct = {}
+
+for i, village in enumerate(villages):
+    vl_dct[village] = coordinates[i]
+
+print(vl_dct)
+
+# create a node for each agent in the model 
+all_nodes = [(agent.unique_id, {'village': agent.village, 'pos': (np.random.uniform(0,1),np.random.uniform(0,1),np.random.uniform(0,1))}) for agent in agents_lst]
+G.add_nodes_from(all_nodes)
+
+# for all agents, add an edges for each of its trading partners
+for row in df_hh[df_hh['step'] == steps-1].itertuples():
+    for dealer in row.best_dealers:
+        G.add_edge(row.unique_id, dealer.owner.unique_id)
+
+
+agents_slctd = [agent.unique_id for agent in agents_lst if agent.village.unique_id == 601010103008]
+SG = create_subgraph(G, agents_slctd)
+
+pos = {node: attributes['pos'] for node, attributes in G.nodes(data=True)}
+
+# Create a 3D scatter plot
+trace = go.Scatter3d(
+    x=[pos[node][0] for node in G.nodes()],
+    y=[pos[node][1] for node in G.nodes()],
+    z=[pos[node][2] for node in G.nodes()],
+    mode='markers',
+    marker=dict(size=8, color='blue'),
+    text=list(G.nodes())
+)
+
+
+axis=dict(showbackground=False,
+          showline=False,
+          zeroline=False,
+          showgrid=False,
+          showticklabels=False,
+)
+
+# Create layout
+layout = go.Layout(
+    title="3D Plotly Graph",
+    showlegend=False,
+    scene=dict(
+        xaxis=dict(axis),
+        yaxis=dict(axis),
+        zaxis=dict(axis)
+    )
+)
+
+# Create the figure
+fig = go.Figure(data=[trace], layout=layout)
+
+# Show the plo
+fig.show()
+
+
+
+
