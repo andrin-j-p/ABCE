@@ -3,7 +3,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 import ABM
 from read_data import create_agent_data
-from data_collector import Sparse_collector
+from data_collector import Sparse_collector, Datacollector
 import arviz as az
 import pandas as pd
 
@@ -64,7 +64,7 @@ model = Model()
 model.run_simulation(1000)
 
 # get simulated data
-df_sm_sim, df_hh_sim, df_fm_sim, df_td_sim, q = model.datacollector.get_calibration_data()
+df_sm_sim, df_hh_sim, df_fm_sim, df_md_sim, df_td_sim = model.datacollector.get_calibration_data()
 
 # get observed data
 df_hh_true, df_fm_true, _, _ = create_agent_data()
@@ -76,39 +76,64 @@ df_fm_true['prof_year'] = 0.01 * df_fm_true['prof_year']
 df_fm_true['rev_year'] = 0.01 * df_fm_true['rev_year']
 
 compare_dist(df_hh_true['p2_consumption'].values, df_hh_sim['demand'].values, 'Demand', (-1, 70))
-#plot_dist(df_hh_true['p3_totincome'].values, 'true income')
-#plot_dist(df_fm_sim['profit'].values, 'simulated profit')
-#plot_dist(df_fm_true['prof_year'].values, 'true profits')
-#compare_dist(df_fm_true['prof_year'].values, df_fm_sim['profit'].values, 'Profit', (-800, 2000))
 plot_dist(df_fm_sim['profit'].values, 'simulated profit', (-200, 200))
 plot_dist(df_fm_sim['assets'].values, 'fm assets', (-2000, 2000))
-plot_dist(df_fm_sim['stock'].values, 'fm stock', (-300, 10000))
-
+plot_dist(df_fm_sim['stock'].values, 'fm stock', (-300, 2000))
 plot_dist(df_hh_sim['income'].values, 'hh income', (-50, 300))
+plot_dist(df_hh_sim[df_hh_sim['firm'].notna()] ['income'], 'hh income firm owners',  (-50, 300))
 plot_dist(df_hh_sim['money'].values, 'hh money', (-50, 1000))
+plot_dist(df_hh_sim[df_hh_sim['firm'].notna()] ['money'], 'hh money firm owners',  (-50, 1000))
 
 
 #==========================================================================
-print(f"true vs. simulated income mean: {np.mean(df_hh_true['p3_totincome']), np.mean(df_hh_sim['income'])}")
-print(f"true vs. simulated income median: {np.median(df_hh_true['p3_totincome']), np.median(df_hh_sim['income'])}")
+print(f"true vs. simulated income mean: { np.mean(df_hh_sim['income'])}")
+print(f"true vs. simulated income median: { np.median(df_hh_sim['income'])}")
+print(f"true vs simulated consumption mean: { np.mean(df_hh_sim['demand'].values)}")
+print(f"true vs simulated consumption median: { np.median(df_hh_sim['demand'].values)}")
+print(f"total income: {np.sum(df_hh_sim['income'])}")
+print(f"total demand: {np.sum(df_hh_sim['demand'])}")
+print(f"total money: {np.sum(df_hh_sim['money'])}")
+print(f"mean profit: {np.mean(df_fm_sim['profit'])}")
 
-print(f"true vs simulated consumption mean: {np.mean(df_hh_true['p2_consumption'].dropna().values), np.mean(df_hh_sim['demand'].values)}")
-print(f"true vs simulated consumption median: {np.median(df_hh_true['p2_consumption'].dropna().values), np.median(df_hh_sim['demand'].values)}")
-
-print(f"simulated average profit{np.mean(df_fm_sim['profit'])}")
-
-print(f"unmeployment rate{sum(1 for row in df_hh_sim.itertuples()  if row.employer == None) / df_hh_sim.shape[0]}")
-print(f" total zero income {sum(1 for row in df_hh_sim.itertuples()  if row.income == 0)}")
-print(f"zero income no firm {sum(1 for row in df_hh_sim.itertuples()  if row.income == 0 and row.firm == None)}")
-print(f"zero income owns firm {sum(1 for row in df_hh_sim.itertuples()  if row.income == 0 and row.firm != None)}")
-print(df_td_sim.tail(100))
-
-
-#print(pd.DataFrame([row for row in df_hh_sim.itertuples() if row.income == 0 ]))
+print(f"unmeployment rate: {sum(1 for row in df_hh_sim.itertuples()  if row.employer == None) / df_hh_sim.shape[0]}")
+print(f"total zero income: {sum(1 for row in df_hh_sim.itertuples()  if row.income == 0)}")
+print(f"zero income no firm: {sum(1 for row in df_hh_sim.itertuples()  if row.income == 0 and row.firm == None)}")
+print(f"zero income owns firm: {sum(1 for row in df_hh_sim.itertuples()  if row.income == 0 and row.firm != None)}")
+print(f"total negative assets: {sum(row.assets for row in df_fm_sim.itertuples()  if row.assets < 0)}")
 print(f" negative assets: {len(pd.DataFrame([row for row in df_fm_sim.itertuples() if row.assets <= 0 ]))}")
 print(f" negative profit {len(pd.DataFrame([row for row in df_fm_sim.itertuples() if row.profit <= 0]))} ")
+print(df_md_sim.tail(100))
+
 #%%
-print(pd.DataFrame([row.id for row in df_fm_sim.itertuples() if (row.profit < 0 and row.employees == 0) ]))
+print(pd.DataFrame([row for row in df_fm_sim.itertuples() if row.assets < 0 ]))
 print(f" negative profit {len(pd.DataFrame([row for row in df_fm_sim.itertuples() if row.profit <= 0]))} ")
 
+
+#%%
+
+# @DELETE set display options. Not imperative for exectution
+pd.set_option('display.max_columns', 20)
+pd.set_option('display.max_rows', None)
+pd.set_option('expand_frame_repr', False)
+pd.set_option('display.width', 10000)
+
+class Model(ABM.Sugarscepe):
+  """
+  Type:        Child Class Sugarscepe
+  Description: Implements the following additional functionality imperative for the calibration process:
+              - sparse data collecter for faster execution
+  """
+  def __init__(self):
+    super().__init__()
+    self.datacollector = Datacollector(self)
+    self.data = []
+
+steps = 200
+model = Model()
+model.run_simulation(steps)
+hh_data, fm_data, md_data, _ = model.datacollector.get_data()
+print(fm_data[(fm_data['step'] == steps-1) & (fm_data['assets'] < 0)])
+# %%
+
+print(fm_data[fm_data['unique_id'] == 'f_601010101004-013'])
 # %%

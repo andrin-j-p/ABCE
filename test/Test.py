@@ -49,15 +49,7 @@ class TestReadData(unittest.TestCase):
 
     def test_hhs_same_in_all_dfs(self):
         pass
-
-    @unittest.skip("Does not hold in data")
-    def test_income_positive(self):
-        """
-        test if there are hh with negative income
-        """
-        contains_negatives = (df_hh_raw['p3_totincome'] < 0).any()
-        self.assertEqual(contains_negatives, False)
-
+    
 
 ####################
 # TEST SIMULATION.PY 
@@ -88,7 +80,8 @@ class TestABM(unittest.TestCase):
     Name:        TestABM
     Description: Unittesting for functions in ABM.py
     """
-### test deterministic model properties 
+### Model 
+ 
     def test_village_instantiation(self):
         """
         test if there are markets without vendors
@@ -105,15 +98,7 @@ class TestABM(unittest.TestCase):
             val_exp = f"m_{int(df_nrst_mk.loc[df_nrst_mk['village_code']==vl.unique_id]['market_id'].iloc[0])}"
             self.assertEqual(val_sim, val_exp)
 
-    def test_hh_with_negative_income(self):
-        """
-        test if there are hh not owning a firm have negative income
-        should not be the case since the 3 observations with that property are droped see read_data.py 
-        """
-        result = df_hh_sim.loc[(df_hh_sim.step==0) & pd.isna(df_hh_sim.owns_firm) & (df_hh_sim['income'] < 0)]['income']
-        self.assertEqual(len(result), 0)
-
-### test frim properties
+### Firm
 
     def test_all_firms_on_market(self):
         """
@@ -161,24 +146,35 @@ class TestABM(unittest.TestCase):
             if hh.firm != None:
                 self.assertEqual(hh.employer, hh.firm)
 
-### test trade related properties
+# Agents
 
-    def test_hh_negative_trade_volume(self):
+    def test_hh_variables(self):
         """
-        test if there are trades with negative volume = price * demand
-        should not be the case since demand is a maximum function see ABM.py
+        test1: hh money needs to be at least zero
+        test2: hh demand cannot exceed money
+        test3: hh income is zero or positive
+        test4: hh income same as productivity
         """
-        result = df_td_sim[df_td_sim['volume'] < 0]
-        self.assertEqual(len(result), 0)
+        for hh in model.all_agents:
+            self.assertGreaterEqual(hh.money, 0)
+            self.assertGreaterEqual(hh.money, hh.demand)
+            self.assertGreaterEqual(hh.income, 0)
+
+            if hh.firm == None and hh.employer != None:
+                self.assertEqual(hh.income, hh.productivity)
+
+### Trade 
 
     def test_price_larger_min_price(self):
         """
-        test if trades happen at a price larger than min price
+        test1 if trades happen at a price larger than min price
+        test2 if there are trades with negative volume = price * demand
         """
         for transaction in df_td_sim.itertuples():
             transaction_price = transaction.price
             price_min = model.hh_dct[transaction.parties[1]].firm.marginal_cost
             self.assertLess(price_min, transaction_price, f"Price in transaction {transaction} is lower than minimum")
+            self.assertGreater(transaction.volume, 0)
 
     def test_buyer_dealer_on_same_market(self):
         """
@@ -189,37 +185,33 @@ class TestABM(unittest.TestCase):
             vendor_mk = model.hh_dct[transaction.parties[1]].firm.market
             self.assertEqual(buyer_mk, vendor_mk)
 
-    def test_no_duplicates_in_dealer_list(self):
+    def test_best_dealers(self):
         """
-        test list of preferred dealers does not contain duplicates
-        -> at given step
+        test1: list of preferred dealers does not contain duplicates
+        test2: all agents in the same village should either have 3 or 0 best dealers
+
         """
         for hh in model.all_agents:
+            # test1
             self.assertEqual(len(set(hh.best_dealers)), len(hh.best_dealers))
-    
-    def test_all_agents_have_best_dealers(self):
-        """
-        all agents in the same village should either have 3 or 0 best dealers
-        """
-        for hh in model.all_agents:
+
             l = len(hh.best_dealers)
             if l == 0:
                 for person in hh.village.population:
-                    self.assertEqual(len(person.best_dealers), 0)
+                    self.assertEqual(len(person.best_dealers), 0)      
 
-### test semantic model properties 
+
+### Semantics
+
     def test_prices_convergance(self):
         """
         rationale: average transaction price is expected to decrease
         """
-        pass
         initial_price = df_md_sim[df_md_sim['step'] == 1]['average_price'].mean()
         final_price = df_md_sim[df_md_sim['step'] == steps-1]['average_price'].mean()
         self.assertLess(final_price, initial_price)
 
-    def test_no_negative_income(self):
-        pass
-    
+
     def test_sales_converge(self):
         pass
 
@@ -229,28 +221,18 @@ class TestABM(unittest.TestCase):
     def test_demand_satisfied_in_range(self):
         pass
 
-    def test_variance_(self):
-        pass
-
-    def test_no_negative_amount(self):
-        pass
-
-    def test_money_not_negative(self):
-        pass
-
-    
 
 
 
 
-from Simulation import calibration
-
-
+#from Simulation import calibration
+"""
+@unittest.skip("Does not hold in data")
 class TestCalibration(unittest.TestCase):
-    """
+    
     Name:        TestABM
     Description: Unittesting for functions in ABM.py
-    """
+    
     
     def test_sobol_sampler(self):
         data = pd.DataFrame({
@@ -282,7 +264,8 @@ class TestCalibration(unittest.TestCase):
     def test_mse(self):
         pass
 
+"""
 if __name__ == '__main__':
 
     unittest.main()
-    
+

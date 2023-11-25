@@ -32,14 +32,14 @@ class Datacollector():
                   for agent in self.model.all_agents]
     
     firm_data = [(step, firm.unique_id, firm.stock, firm.price, firm.money, firm.output, firm.sales, firm.price * firm.sales,
-                  firm.profit, len(firm.employees))
+                  firm.profit, firm.assets, len(firm.employees))
                  for firm in self.model.all_firms]
     
     # Create a Pandas DataFrames from the list comprehensions
     df_hh_new = pd.DataFrame(agent_data, columns=['step','unique_id', 'village_id', 'lat', 'lon', "income", "best_dealers", "money", 
                                                   "demand", 'employer', 'owns_firm'])
     df_fm_new = pd.DataFrame(firm_data, columns=['step', 'unique_id', 'stock', 'price', 'money', 'output', 'sales', 'revenue', 'profit',
-                                                 'employees'])
+                                                 'assets', 'employees'])
  
      # Create a Pandas Dataframe from model data and reset their values
     df_md_new = {'step': step, 'no_worker_found': self.no_worker_found, 'no_dealer_found': self.no_dealer_found, 'worker_fired': self.worker_fired}
@@ -103,9 +103,6 @@ class Sparse_collector():
     self.td_data = []
     self.data = []
 
-    # @DELETE
-    self.quit = []
-
     self.no_worker_found = 0
     self.no_dealer_found = 0
     self.worker_fired = 0
@@ -118,7 +115,6 @@ class Sparse_collector():
     """
     step = self.model.schedule.steps
 
-    self.td_data = []
     self.data.append( {'step': step, 'no_worker_found': self.no_worker_found, 'no_dealer_found': self.no_dealer_found, 'worker_fired': self.worker_fired})
     
     self.no_worker_found = 0
@@ -158,5 +154,7 @@ class Sparse_collector():
     
 
     df_md = pd.DataFrame(self.data)
-    return np.array(sm_data).flatten(), df_hh, df_fm, df_md, self.quit
+    df_td = pd.DataFrame(self.td_data)
+
+    return np.array(sm_data).flatten(), df_hh, df_fm, df_md, df_td
 

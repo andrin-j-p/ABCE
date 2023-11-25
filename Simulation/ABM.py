@@ -5,7 +5,6 @@ from data_collector import Datacollector
 import timeit
 import copy
 
-
 # @TODO 
 # change initial variables to none not zero
 
@@ -22,7 +21,7 @@ class Firm(mesa.Agent):
     self.owner = None
     self.market = market
     self.village = village
-    self.productivity = 1.02
+    self.productivity = 1.03
     # price
     self.price = np.random.uniform(1, 10) # price in current month (initialized randomly)
     self.marginal_cost = 1# labor is payed its productivity 
@@ -40,7 +39,7 @@ class Firm(mesa.Agent):
     self.sales = 0  # quantity sold this month
     # profit
     self.money = 0
-    self.assets = 0
+    self.assets = 200
     self.profit = 0
     self.revenue = 0
 
@@ -80,7 +79,7 @@ class Firm(mesa.Agent):
     """
     # Output is a function of employees' and firms' productivity parameters
     amount = self.productivity * (sum(employee.productivity for employee in self.employees)  + self.owner.productivity)
-    self.output += amount
+    self.output = amount
     self.stock += amount
     
   def set_labor(self):
@@ -112,8 +111,6 @@ class Firm(mesa.Agent):
       worker_fired = self.employees.pop()
       worker_fired.employer = None
       worker_fired.income = 0
-      if self.model.schedule.steps > 93:
-        self.model.datacollector.quit.append(self.unique_id)
 
   def distribute_profit(self):
     """
@@ -139,15 +136,19 @@ class Firm(mesa.Agent):
     # note: Plus not minus
     # @Make this a parameter
     if self.profit >= 0:
-      self.assets += 0.1 * self.profit
-      self.owner.income = 0.9 * self.profit
-      self.owner.money += 0.9 * self.profit
+      reserves = 0.1 if self.assets >= 0 else 0.9
+      self.assets += reserves * self.profit
+      self.owner.income = (1 - reserves) * self.profit
+      self.owner.money += (1 - reserves) * self.profit
+
     
     elif self.profit < 0 and self.assets + self.profit >= 0:
       self.assets += self.profit
-      self.owner.income = 0.1 * self.assets
-      self.assets -= 0.1 * self.assets
-      self.owner.money += 0.1 * self.assets
+
+      payout = 0.1 * self.assets
+      self.owner.income = payout
+      self.owner.money += payout
+      self.assets -= payout
     
     else:
       self.assets += self.profit
@@ -170,7 +171,7 @@ class Firm(mesa.Agent):
       ## BEGINNING OF MONTH
       # set the min_stock to the sales of previous month
       self.min_stock = self.sales * self.phi_l
-      self.max_stock = self.sales * self.phi_u
+      self.max_stock = self.sales * self.phi_u 
       # reset sales and output for this month to zero
       self.sales = 0
       self.output = 0
@@ -185,7 +186,7 @@ class Agent(mesa.Agent):
   Type:         Mesa Agent Class
   Description:  Represents a household in the economy
   """
-  def __init__(self, unique_id, model, village, income, firm, employer):
+  def __init__(self, unique_id, model, village, firm, employer):
     super().__init__(unique_id, model)
     # parameters to be calibrated
     self.alpha = 0.8 # propensity to consume
@@ -249,7 +250,7 @@ class Agent(mesa.Agent):
     # note: the if statment is necessary because of float rounding errors.
     # 
     self.demand = pow(self.money, self.alpha) if self.money > 0 else 0
-
+    
     # return the list of best dealers extended by all potential dealers in case demand is not satisfied
     return self.best_dealers + potential_dealers
 
@@ -285,19 +286,26 @@ class Agent(mesa.Agent):
 
       # iterate through the list of best dealers until demand is satisfied
       for dealer in best_dealers:
-
+        
+        # account for the case where the agent cannot afford her demand
         amount = max(0, min(self.money / dealer.price, demand))
         demand = amount
+
+        # the remaining demand is smaller than 0.25. The agent does not contiune buying
+        if amount <= 0.25:
+          return
 
         # if dealer doesn't have enough on stock: buy all that remains
         if dealer.stock - demand < 0:
           amount = min(dealer.stock, amount)
 
+        # the dealer has nothing left on stock. The agents goes to the next dealer
+        if amount <= 0:
+          continue
+
         self.trade(dealer, amount)
         demand -= amount
 
-        if demand <= 0.25:
-          return
       
       self.model.datacollector.no_dealer_found +=1 
         
@@ -383,7 +391,7 @@ class Sugarscepe(mesa.Model):
               for row in self.df_fm.itertuples()}
 
     # create a list of agents based on the loaded df_hh
-    hh_lst = [Agent(unique_id=row.hhid_key, model=self, village=vl_dct[row.village_code], income=row.p2_consumption,
+    hh_lst = [Agent(unique_id=row.hhid_key, model=self, village=vl_dct[row.village_code],
                     firm=fm_dct.get(row.hhid_key, None), employer=fm_dct.get(row.hhid_key, None))
               for row in self.df_hh.itertuples()]
 
@@ -557,5 +565,6 @@ if __name__ == "__main__":
 
     # Sort and print the top N entries with the highest cumulative time
     #profile_stats.strip_dirs().sort_stats('cumulative').print_stats(20)
-    run_simulation()
+    #run_simulation()
     print('')
+
