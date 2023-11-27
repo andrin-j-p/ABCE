@@ -26,16 +26,13 @@ def create_circle_coordinates(N, radius):
 
     return coordinates
 
-
-def create_subgraph_out_village(G, village):
+def create_subgraph(G, in_village_nodes):
     """
     Type: Helper function 
     Description: Creates a subgraph of G including all the nodes connected to the list of specified nodes
     Used in: visualize.py callback
     """
     # Iterate through the specified nodes and collect their neighbors
-    in_village_nodes = [agent.unique_id for agent in agents_lst if agent.village.unique_id == village]
-
     out_village_nodes = set()
     in_village_coords = create_circle_coordinates(len(in_village_nodes), 10)
     for i, n in enumerate(in_village_nodes):
@@ -48,16 +45,7 @@ def create_subgraph_out_village(G, village):
     for i, n in enumerate(list(out_village_nodes)):
         G.nodes[n]['pos'] = out_village_coords[i]
 
-
-    node_adjacancies = []
-    node_text = []
-    for n, adjacencies in G.adjacency():
-      if G.nodes[n]['village'] == village:
-        node_adjacancies.append(len(adjacencies))
-        node_text.append('# of connections: '+ str(len(adjacencies)))
-
-    return G.subgraph(set(in_village_nodes) | out_village_nodes), node_adjacancies, node_text
-
+    return G.subgraph(set(in_village_nodes) | out_village_nodes)
 
 def create_figure(G, node_adjacencies, node_text):
     # create edges to be displayed (see https://plotly.com/python/network-graphs/)
@@ -122,7 +110,6 @@ def create_figure(G, node_adjacencies, node_text):
     node_trace.marker.color = node_adjacencies
     node_trace.text = node_text
 
-
     # create the graph figure
     fig = go.Figure(data = edge_trace +[node_trace],
              layout=go.Layout(
@@ -152,21 +139,22 @@ G = nx.Graph()
 village_list = model.all_villages
 
 # create a node for each agent in the model 
-all_nodes = [(agent.unique_id, {'village': agent.village.unique_id, 
-                                'pos': (np.random.uniform(-1,1),np.random.uniform(-1,1),np.random.uniform(-1,1))}) 
-                                for agent in village_list]
+all_nodes = [(village.unique_id, {'pos': (village.pos[0], village.pos[1])}) 
+              for village in village_list]
 
 # create a graph objects with nodes for all agents in the simulation 
 G.add_nodes_from(all_nodes)
 
 # for all agents, add an edges for each of its trading partners
-for row in df_hh.itertuples():   
-  for firm in row.best_dealers:
-    G.add_edge(row.unique_id, firm.owner.unique_id)
+for village in village_list:   
+  for vendor in village.market.vendors:
+    G.add_edge(village.unique_id, vendor.owner.unique_id)
 
 
 ### G2
 village = 601010103008
+agents_lst = model.all_agents
+agents_slctd = [agent.unique_id for agent in agents_lst if agent.village.unique_id == village]
 
-G2, node_adjacencies, node_text = create_subgraph_out_village(G, village)
-create_figure(G2, node_adjacencies, node_text)
+G2 = create_subgraph(G, agents_slctd)
+create_figure(G2)

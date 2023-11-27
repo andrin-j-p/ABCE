@@ -275,7 +275,8 @@ class Agent(mesa.Agent):
     
     # save the transaction details in the model data collector
     self.model.datacollector.td_data.append({"step": self.model.schedule.steps, "parties": (self.unique_id, dealer.owner.unique_id), 
-                                             "price": dealer.price, "amount": amount, "volume": total_price, 'market': self.village.market})
+                                             "price": dealer.price, "amount": amount, "volume": total_price, 'market': self.village.market.unique_id,
+                                              'from': self.village.unique_id, 'to': dealer.owner.village.unique_id})
 
   def step(self):
     # hh step only needs to be executed on market day
@@ -326,7 +327,7 @@ class Village(mesa.Agent):
       self.county = county
       self.market = market
       self.population = None
-      self.treated = treated
+      self.treated = 0
       self.saturation = saturation
 
     def __repr__(self):
@@ -343,6 +344,8 @@ class Market(mesa.Agent):
     super().__init__(unique_id, model)
     self.data = data
     self.vendors = None
+    self.villages = None
+    self.saturation = 0
   
   def __repr__(self):
      return f'Market: {self.unique_id} with costumers id: {[vendor.unique_id for vendor in self.vendors]}'
@@ -381,7 +384,7 @@ class Sugarscepe(mesa.Model):
               for market_id in self.df_mk["market_id"].unique()}
 
     # create a dictionary of villages based on the loaded df_vl
-    vl_dct = {row.village_code : Village(unique_id=row.village_code, model=self, pos=row.pos, county=row.county, 
+    vl_dct = {row.village_code : Village(unique_id=int(row.village_code), model=self, pos=row.pos, county=row.county, 
                                          market=mk_dct[row.market_id], treated=row.treat, saturation= row.hi_sat)
               for row in self.df_vl.itertuples()}
     
@@ -429,20 +432,22 @@ class Sugarscepe(mesa.Model):
         self.schedule.add(hh.firm)
     
     # create an attribute for quick acess to all hh in the model
-    self.all_agents = self.schedule.agents_by_type[Agent].values()
+    self.all_agents = list(self.schedule.agents_by_type[Agent].values())
   
     # create an attribute for quick acess to all firms in the model 
-    self.all_firms = self.schedule.agents_by_type[Firm].values()  
+    self.all_firms = list(self.schedule.agents_by_type[Firm].values())
 
     # agentize the grid with mks
     for mk in mk_dct.values():
        # add mk to schedule
        self.schedule.add(mk)
-       # initialize vendors
+       # store vendors operating on the market
        mk.vendors = [firm for firm in self.all_firms if firm.market == mk] 
+       # store villages vendors are coming from (for UCT)
+       mk.villages = [vendor.village for vendor in mk.vendors]
 
     # create an attribute for quick acess to all markets in the model 
-    self.all_markets = self.schedule.agents_by_type[Market].values()  
+    self.all_markets = list(self.schedule.agents_by_type[Market].values())  
 
     # agentize the grid with vls
     for vl in vl_dct.values():
@@ -452,7 +457,8 @@ class Sugarscepe(mesa.Model):
        vl.population = [hh for hh in self.all_agents if hh.village == vl]
     
     # create an attribute for quick acess to all villages in the model 
-    self.all_villages = self.schedule.agents_by_type[Village].values()  
+    self.all_villages = list(self.schedule.agents_by_type[Village].values())  
+
 
   def randomize_agents(self, agent_type):
     """
@@ -464,6 +470,7 @@ class Sugarscepe(mesa.Model):
     agent_list = getattr(self, a)
     agent_shuffle = list(agent_list)
     return agent_shuffle
+  
 
   def step(self):
     """
@@ -491,16 +498,66 @@ class Sugarscepe(mesa.Model):
     # for data collector to track the number of steps
     self.schedule.steps += 1 
 
-    ## Conduct the intervention at step 1000
-    #if self.schedule.steps%1000 == 0:
-    #  self.intervention(150) # token
+    # Conduct the intervention at step 800
+    if self.schedule.steps == 800:
 
-    #if self.schedule.steps%1060:
-    #   self.intervention(860)
-    #
-    #if self.schedule.steps%p1240:
-    #   self.intervention(860)
-    #
+      # assign treatment status 
+      self.assign_treatement_status()
+
+      # distribute the token (USD 150 PPP)
+      self.intervention(50) 
+
+    if self.schedule.steps == 920:
+       # distribute first handoud (USD 860 PPP)
+       self.intervention(300)
+    
+    if self.schedule.steps == 1100:
+       # distribute first handoud (USD 860 PPP)
+       self.intervention(300)
+    
+
+  def assign_treatement_status(self):
+    """
+    Type:        Method
+    Description: Assigns saturation and treatment status on market, village and agnet level
+    """
+
+### Level 1 randomization
+
+    # assign high saturation status to 30 random markets
+    high_sat_mk = np.random.choice(self.all_markets, size=30, replace=False)
+    for mk in high_sat_mk:
+      setattr(mk, 'saturation', 1)
+
+### Level 2 randomizaton
+
+    # assign control status to 2/3 of villages in low saturation mks 
+    # assign treatment status to 2/3 of villages in high saturation mks 
+    for mk in self.all_markets:
+      # choose treatment villages fraction depending on market saturation status
+      treat_frac = 2/3 if mk.saturation == 1 else 1/3
+      mk_villages = mk.villages
+      treatment_villages = np.random.choice(mk_villages, int(len(mk_villages) * treat_frac), replace=False)
+
+      # assign treatment status to the selected villages
+      for vl in treatment_villages:
+        setattr(vl, 'treated', 1)
+
+### Level 3 randomization 
+
+    # for each treatment village identify the 30 poorest households
+    self.treated_agents = []
+    for vl in treatment_villages:
+      sorted_population = sorted(vl.population, key=lambda x: x.money)
+      self.treated_agents.extend(sorted_population[:18])
+    
+    # assign treatment status to the selected agents
+    for agent in self.treated_agents:
+      setattr(agent, 'treated', 1)
+
+    print(f"# treated hhs: {len(self.treated_agents)}")
+
+
   def intervention(self, amount):
     """
     Type:        Method
@@ -509,19 +566,6 @@ class Sugarscepe(mesa.Model):
     for agent in self.treated_agents:
       agent.money += amount
 
-  def assign_treatement_status(self):
-    """
-    Type:        Method
-    Description: Assigns treatment status to agnets
-    """
-    # get all treatment villages
-    treatment_villages = [village for village in self.all_villages if village.treatment ==1]
-
-    # for each treatment village assign treatment status to the 30 poorest people
-    self.treated_agents = []
-    for village in treatment_villages:
-      sorted_population = sorted(village.population, lambda x: x.money)
-      self.treated_hh.extend(sorted_population[:30])
 
   def run_simulation(self, steps):
     """
@@ -542,7 +586,7 @@ class Sugarscepe(mesa.Model):
     return f'N Households: {len(self.all_agents)} \nN Firms: {len(self.all_firms)} \nN Villages: {len(self.all_villages)}\nN Markets: {len(self.all_markets)}'
 
 
-def run_simulation(steps = 400):
+def run_simulation(steps = 10):
   start = timeit.default_timer()
 
   model = Sugarscepe()
@@ -565,6 +609,6 @@ if __name__ == "__main__":
 
     # Sort and print the top N entries with the highest cumulative time
     #profile_stats.strip_dirs().sort_stats('cumulative').print_stats(20)
-    #run_simulation()
+    run_simulation()
     print('')
 

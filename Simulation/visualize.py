@@ -193,7 +193,7 @@ def update_graph(option_slctd):
     G = nx.Graph()
 
     # create a list of all agents in the model
-    agents_lst = list(model.schedule.agents_by_type[ABM.Agent].values())
+    agents_lst = model.all_agents
 
     # create a node for each agent in the model 
     node_positions = {agent.unique_id: (0,0) for agent in agents_lst}

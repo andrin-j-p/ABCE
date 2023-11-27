@@ -84,7 +84,7 @@ class Datacollector():
                 for step in range(self.model.schedule.steps + 1)]
     
     # Create a Pandas DataFrames from the list comprehensions
-    df_md2 = pd.DataFrame(sm_data, columns=['step','total_output', 'average_employees', 'average_stock', 'profit', 'total_sales', 
+    df_md2 = pd.DataFrame(sm_data, columns=['step','total_output', 'average_employees', 'average_stock', 'average_profit', 'total_sales', 
                                             'unemployment_rate', 'average_income', 'average_price', 'trade_volume', 
                                             'demand_satisfied', 'output'])
     # Put all model level data into one dataframe
@@ -101,7 +101,7 @@ class Sparse_collector():
   def __init__(self, model):
     self.model = model
     self.td_data = []
-    self.data = []
+    self.md_data = []
 
     self.no_worker_found = 0
     self.no_dealer_found = 0
@@ -115,7 +115,7 @@ class Sparse_collector():
     """
     step = self.model.schedule.steps
 
-    self.data.append( {'step': step, 'no_worker_found': self.no_worker_found, 'no_dealer_found': self.no_dealer_found, 'worker_fired': self.worker_fired})
+    self.md_data.append( {'step': step, 'no_worker_found': self.no_worker_found, 'no_dealer_found': self.no_dealer_found, 'worker_fired': self.worker_fired})
     
     self.no_worker_found = 0
     self.no_dealer_found = 0
@@ -145,15 +145,15 @@ class Sparse_collector():
                 df_fm['employees'].var(),     # employees variance
                 df_fm['profit'].mean(),       # profit averag
                 df_fm['profit'].var(),        # profit variance
-                df_fm['sales'].mean(),      # revenue average
-                df_fm['sales'].var(),       # revenue variance
+                df_fm['sales'].mean(),        # revenue average
+                df_fm['sales'].var(),         # revenue variance
                 df_fm['stock'].mean(),        # stock average 
                 df_fm['stock'].var(),         # stock variance
                 df_hh['demand'].mean(),  # consumption averrage
                 df_hh['demand'].var())]  # consumption variance
     
 
-    df_md = pd.DataFrame(self.data)
+    df_md = pd.DataFrame(self.md_data)
     df_td = pd.DataFrame(self.td_data)
 
     return np.array(sm_data).flatten(), df_hh, df_fm, df_md, df_td

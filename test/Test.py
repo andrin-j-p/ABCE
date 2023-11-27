@@ -200,6 +200,13 @@ class TestABM(unittest.TestCase):
                 for person in hh.village.population:
                     self.assertEqual(len(person.best_dealers), 0)      
 
+### Intervention 
+
+    def test_treated_agents(self):
+        # test if after token money is at least 150
+        # test if after first intervention money is at least 840 
+        # test if after second intervention money is at least 840 
+        pass
 
 ### Semantics
 
@@ -224,6 +231,9 @@ class TestABM(unittest.TestCase):
 
 
 
+#####################
+# TEST CALIBRATION.PY 
+#####################
 
 #from Simulation import calibration
 """

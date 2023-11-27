@@ -52,6 +52,12 @@ An additional handy command is git status which reports which files are tracked 
 >>> git status
 ````
 
+For git large file delition:
+1) delete 
+2) run 
+````
+git reset --soft HEAD~3
+````
 ## Activate environment
 To activate virtual environment run:
 ````
