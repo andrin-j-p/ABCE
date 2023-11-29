@@ -158,3 +158,74 @@ class Sparse_collector():
 
     return np.array(sm_data).flatten(), df_hh, df_fm, df_md, df_td
 
+
+
+
+
+class Validation_collector():
+  def __init__(self, model):
+    self.model = model
+    self.td_data = []
+    self.data = []
+
+    self.no_worker_found = 0
+    self.no_dealer_found = 0
+    self.worker_fired = 0
+    self.count = 0
+
+
+  def collect_data(self):
+    """
+    Type:         Datacollector Method
+    Description:  Stores data generated in a given step as a pandas df
+    """
+    self.td_data = []
+    if self.model.schedule.steps % 7 != 0:
+      return
+
+### HH data
+    hh_data = [(agent.income, agent.money, agent.demand, agent.firm, agent.employer, agent.treated)
+                for agent in self.model.all_agents]
+
+### FM data
+    fm_data = [(firm.assets, firm.profit, firm.sales * firm.price, firm.stock, firm.village.treated) 
+                 for firm in self.model.all_firms]
+    
+### MD data
+    md_data = [(self.no_worker_found, self.no_dealer_found, self.worker_fired)]
+    
+    self.no_worker_found = 0
+    self.no_dealer_found = 0
+    self.worker_fired = 0
+
+    # Create DataFrames for agents and firms
+    hh_df = pd.DataFrame(hh_data, columns=['Income', 'Money', 'Demand', 'Firm', 'Employer', 'Treated'])
+    fm_df = pd.DataFrame(fm_data, columns=['Assets', 'Profit', 'Revenue', 'Stock','Treated'])
+    #md_df = pd.DataFrame(md_data, columns=['No_worker_found', 'no_dealer_found', 'worker_fired' ])
+
+    df = {'step': self.count, 
+          'Income_Treated': hh_df[hh_df['Treated'] == 1]['Income'].mean(),
+          'Income_Control': hh_df[hh_df['Treated'] == 0]['Income'].mean(),
+          'Money_Treated': hh_df[hh_df['Treated'] == 1]['Money'].mean(),
+          'Money_Control': hh_df[hh_df['Treated'] == 0]['Money'].mean(),          
+          'Demand_Treated': hh_df[hh_df['Treated'] == 1]['Demand'].mean(),
+          'Demand_Control': hh_df[hh_df['Treated'] == 0]['Demand'].mean(),
+          'Assets_Treated': fm_df[fm_df['Treated'] == 1]['Assets'].mean(),
+          'Assets_Control': fm_df[fm_df['Treated'] == 0]['Assets'].mean(),
+          'Revenue_Treated': fm_df[fm_df['Treated'] == 1]['Revenue'].mean(),
+          'Revenue_Control': fm_df[fm_df['Treated'] == 0]['Revenue'].mean(),          
+          'Profit_Treated': fm_df[fm_df['Treated'] == 1]['Profit'].mean(),
+          'Profit_Control': fm_df[fm_df['Treated'] == 0]['Profit'].mean(),
+          'Stock_Treated': fm_df[fm_df['Treated'] == 1]['Stock'].mean(),
+          'Stock_Control': fm_df[fm_df['Treated'] == 0]['Stock'].mean(),
+          'Unemployment': len(hh_df[hh_df['Employer'].isna()]) / hh_df.shape[0],
+          }
+
+    self.data.append(df)
+    self.count += 1
+    return 
+  
+  def get_data(self):
+    return  pd.DataFrame(self.data)
+
+

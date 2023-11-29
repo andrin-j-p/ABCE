@@ -3,10 +3,9 @@ import numpy as np
 from read_data import create_agent_data
 from data_collector import Datacollector
 import timeit
-import copy
-
-# @TODO 
-# change initial variables to none not zero
+import pstats
+import cProfile
+import random
 
 class Firm(mesa.Agent):
   """
@@ -93,9 +92,11 @@ class Firm(mesa.Agent):
     # 2) if there is a worker available
     if self.stock < self.min_stock:
       try:
-        new_employee = np.random.choice([hh for hh in self.village.population if hh.employer == None], size=1, replace=False)[0]
+        new_employee = random.sample([hh for hh in self.village.population if hh.employer == None], k=1)[0]
         new_employee.employer = self
         self.employees.append(new_employee)
+        new_employee.income = new_employee.productivity
+
       except ValueError as e:
         self.model.datacollector.no_worker_found += 1
         return
@@ -141,7 +142,6 @@ class Firm(mesa.Agent):
       self.owner.income = (1 - reserves) * self.profit
       self.owner.money += (1 - reserves) * self.profit
 
-    
     elif self.profit < 0 and self.assets + self.profit >= 0:
       self.assets += self.profit
 
@@ -186,7 +186,7 @@ class Agent(mesa.Agent):
   Type:         Mesa Agent Class
   Description:  Represents a household in the economy
   """
-  def __init__(self, unique_id, model, village, firm, employer):
+  def __init__(self, unique_id, model, village, firm, employer, pos):
     super().__init__(unique_id, model)
     # parameters to be calibrated
     self.alpha = 0.8 # propensity to consume
@@ -196,8 +196,7 @@ class Agent(mesa.Agent):
     # initialize geo-related characteristics
     self.village = village
     self.county = self.village.county
-    self.pos = (self.village.pos[0] + np.random.uniform(-0.0003, 0.0003), # pos is a tuple of shape (lat, lon) as used for continuous_grid in mesa
-                self.village.pos[1] + np.random.uniform(-0.0003, 0.0003)) # it is randomly clustered around the village the agent belongs to
+    self.pos = pos
     
     # initialize other hh characteristics
     self.income = 0 
@@ -215,7 +214,6 @@ class Agent(mesa.Agent):
 
   def find_dealer(self):
     """
-    @Calibrate: list length of best_delaer
     Type:         Method 
     Description:  Maintains the list of best dealers  
     Used in:      buy_goods
@@ -230,7 +228,7 @@ class Agent(mesa.Agent):
     
     # if the list of best dealers is empty try 3 'random dealers'
     if len(self.best_dealers) == 0:
-      self.best_dealers = list(np.random.choice(potential_dealers, size=4, replace=False))
+      self.best_dealers = random.sample(potential_dealers, k=4)
 
     # if price of best dealer increased compared to last week try a new dealer at random @spite
     # only checked from the second week onwards when the self.best_dealer_price contains a value
@@ -238,7 +236,7 @@ class Agent(mesa.Agent):
 
       # randomly select a new dealer from the dealers not already in the list and append it at the end 
       # note: np.random.choice returns a np. array; thus the index
-      new_dealer = np.random.choice(list(set(potential_dealers) - set(self.best_dealers)), size=1, replace=False)[0]
+      new_dealer = random.sample(list(set(potential_dealers) - set(self.best_dealers)), k=1)[0]
       if self.best_dealers[-1].price > new_dealer.price:
         self.best_dealers[-1] =  new_dealer
 
@@ -247,9 +245,8 @@ class Agent(mesa.Agent):
     self.best_dealers = sorted(self.best_dealers, key=lambda x: x.price)
     self.best_dealer_price = self.best_dealers[0].price
 
-    # note: the if statment is necessary because of float rounding errors.
-    # 
-    self.demand = pow(self.money, self.alpha) if self.money > 0 else 0
+    # note: for 0 < money < 1 demand exceeds money
+    self.demand = pow(self.money, self.alpha) if self.money > 1 else 0
     
     # return the list of best dealers extended by all potential dealers in case demand is not satisfied
     return self.best_dealers + potential_dealers
@@ -276,7 +273,7 @@ class Agent(mesa.Agent):
     # save the transaction details in the model data collector
     self.model.datacollector.td_data.append({"step": self.model.schedule.steps, "parties": (self.unique_id, dealer.owner.unique_id), 
                                              "price": dealer.price, "amount": amount, "volume": total_price, 'market': self.village.market.unique_id,
-                                              'from': self.village.unique_id, 'to': dealer.owner.village.unique_id})
+                                             "from": self.village.unique_id, 'to': dealer.owner.village.unique_id})
 
   def step(self):
     # hh step only needs to be executed on market day
@@ -307,7 +304,6 @@ class Agent(mesa.Agent):
         self.trade(dealer, amount)
         demand -= amount
 
-      
       self.model.datacollector.no_dealer_found +=1 
         
 
@@ -321,14 +317,14 @@ class Village(mesa.Agent):
     Description:  Physical location of households. Deterimines social environment of agents
                   level at which spillovers occur
     """
-    def __init__(self, unique_id, model, pos, county, market, treated, saturation):
+    def __init__(self, unique_id, model, pos, county, market):
       super().__init__(unique_id, model)
       self.pos = pos
       self.county = county
       self.market = market
-      self.population = None
+      self.population = []
       self.treated = 0
-      self.saturation = saturation
+      self.saturation = 0
 
     def __repr__(self):
        return f'Village: {self.unique_id} at coordinates {self.pos} in county {self.county}'
@@ -340,15 +336,16 @@ class Market(mesa.Agent):
   Description:  Entity were phisical transactions take place. 
   Used in:      Agent.trade(), 
   """
-  def __init__(self, unique_id, model, data):
+  def __init__(self, unique_id, model, pos, county):
     super().__init__(unique_id, model)
-    self.data = data
-    self.vendors = None
-    self.villages = None
+    self.county = county
+    self.pos = pos
+    self.vendors = []
+    self.villages = []
     self.saturation = 0
   
   def __repr__(self):
-     return f'Market: {self.unique_id} with costumers id: {[vendor.unique_id for vendor in self.vendors]}'
+     return f'Market: {self.unique_id} in county: {self.county}'
 
 
 class Sugarscepe(mesa.Model):
@@ -356,7 +353,7 @@ class Sugarscepe(mesa.Model):
   Type:         Mesa Model Class
   Description:  Main Class for the simulation
   """
-  def __init__(self, min_lat=-0.05 , max_lat=0.25, min_lon=34.00, max_lon=34.5, N=53000):
+  def __init__(self, min_lat=-0.05 , max_lat=0.25, min_lon=34.00, max_lon=34.5, N=60000):
     print('init was called')
 
     # confine the geographic space of the grid to the study area
@@ -378,86 +375,56 @@ class Sugarscepe(mesa.Model):
     # load the dataset used to initialize the village, agent instances and store it
     self.df_hh, self.df_fm, self.df_vl, self.df_mk = create_agent_data()
 
-    # create a dictionary of markets based on the loaded df_mk
-    # note: the self parameter passed explicitly is the model i.e. the current instance of Sugarscape
-    mk_dct = {market_id: Market(unique_id=f"m_{market_id}", model=self, data=self.df_mk.loc[self.df_mk['market_id'] == market_id])
-              for market_id in self.df_mk["market_id"].unique()}
+### Agentize the grid with mks
+    self.all_markets = []
+    for row in self.df_mk.itertuples():
+      mk = Market(unique_id=f"m_{row.market_id}", model=self, pos=row.pos, county=row.county)
+      self.all_markets.append(mk)
+      self.schedule.add(mk)
 
-    # create a dictionary of villages based on the loaded df_vl
-    vl_dct = {row.village_code : Village(unique_id=int(row.village_code), model=self, pos=row.pos, county=row.county, 
-                                         market=mk_dct[row.market_id], treated=row.treat, saturation= row.hi_sat)
-              for row in self.df_vl.itertuples()}
-    
-    # create a dictionary of firms based on loaded df_fm 
-    fm_dct = {row.hhid_key: Firm(unique_id=f"f_{row.hhid_key}", model=self, market=vl_dct[row.village_code].market,
-                                 village=vl_dct[row.village_code])
-              for row in self.df_fm.itertuples()}
+### Agentize the grid with vls
+    self.all_villages = []
+    for i in range(len(self.df_vl)):
+      mk = random.sample(self.all_markets, k=1)[0]
+      pos = (mk.pos[0] + np.random.uniform(-0.01, 0.01), # pos is a tuple of shape (lat, lon) as used for continuous_grid in mesa
+             mk.pos[1] + np.random.uniform(-0.01, 0.01)) 
+      
+      vl = Village(unique_id=f"v_{i}", model=self, pos=mk.pos, county=mk.county, market=mk)
+      mk.villages.append(vl)
+      self.all_villages.append(vl)
+      self.schedule.add(vl)
 
-    # create a list of agents based on the loaded df_hh
-    hh_lst = [Agent(unique_id=row.hhid_key, model=self, village=vl_dct[row.village_code],
-                    firm=fm_dct.get(row.hhid_key, None), employer=fm_dct.get(row.hhid_key, None))
-              for row in self.df_hh.itertuples()]
+### Agentize the grid with hhs and fms
+    self.all_agents = []   
+    self.all_firms = []    
+    for i in range(N):
+      vl = self.all_villages[i % len(self.all_villages)]
+      fm = None
 
-    # create N additional, syntetic hhs based on randomly chosen, existing hhs
-    # Note: all syntetic hh have positive income: asserts that only firm owners can have non-positive income
-    templates = np.random.choice([hh for hh in hh_lst], size=self.N, replace=True)
-    for i, hh in enumerate(templates):
-      new_instance = copy.copy(hh)
-      new_instance.unique_id = f"HHS{i}_{hh.unique_id}"
-      if np.random.random() < 0.2:
-        firm = Firm(unique_id=f"HHf_{new_instance.unique_id}", model=self, market=new_instance.village.market,
-                                 village=new_instance.village)
-        new_instance.firm = firm
-        new_instance.employer = firm
+      if np.random.random() < 0.3:
+        fm = Firm(unique_id=f"f_{i}", model=self, market=vl.market, village=vl)
+        vl.market.vendors.append(fm)
+        self.all_firms.append(fm)
+        self.schedule.add(fm)
 
-      else:
-        new_instance.firm = None
-        new_instance.employer = None
-
-      hh_lst.append(new_instance)
-      hh.pos = (hh.village.pos[0] + np.random.uniform(-0.0003, 0.0003), # pos is a tuple of shape (lat, lon) as used for continuous_grid in mesa
-                hh.village.pos[1] + np.random.uniform(-0.0003, 0.0003)) 
-
-    # agentize the grid with hhs
-    for hh in hh_lst:
-      # place hh on grid and add it to schedule
-      self.grid.place_agent(hh, hh.pos)
-      self.schedule.add(hh)
-      # add firms to schedule if applicable
-      # note: done here so only firms with owners in the GE_HHLevel_ECMA.dta dataset are added
-      if hh.firm != None:
+      pos = (vl.pos[0] + np.random.uniform(-0.0003, 0.0003), # pos is a tuple of shape (lat, lon) as used for continuous_grid in mesa
+             vl.pos[1] + np.random.uniform(-0.0003, 0.0003)) 
+      
+      hh = Agent(unique_id=f"h_{i}", model=self, pos=pos, village=vl, firm=fm, employer=None)
+      
+      # add hh as firm owner if applicable
+      if fm != None:
         # add owner to firm
         hh.firm.owner = hh
-        # add firm to schedule
-        self.schedule.add(hh.firm)
-    
-    # create an attribute for quick acess to all hh in the model
-    self.all_agents = list(self.schedule.agents_by_type[Agent].values())
-  
-    # create an attribute for quick acess to all firms in the model 
-    self.all_firms = list(self.schedule.agents_by_type[Firm].values())
+        
+      # add hh as inhabitant
+      vl.population.append(hh)
 
-    # agentize the grid with mks
-    for mk in mk_dct.values():
-       # add mk to schedule
-       self.schedule.add(mk)
-       # store vendors operating on the market
-       mk.vendors = [firm for firm in self.all_firms if firm.market == mk] 
-       # store villages vendors are coming from (for UCT)
-       mk.villages = [vendor.village for vendor in mk.vendors]
+      # place hh on grid and add it to schedule
+      self.all_agents.append(hh)
 
-    # create an attribute for quick acess to all markets in the model 
-    self.all_markets = list(self.schedule.agents_by_type[Market].values())  
-
-    # agentize the grid with vls
-    for vl in vl_dct.values():
-       # add vl to schedule
-       self.schedule.add(vl)
-       # initialize population 
-       vl.population = [hh for hh in self.all_agents if hh.village == vl]
-    
-    # create an attribute for quick acess to all villages in the model 
-    self.all_villages = list(self.schedule.agents_by_type[Village].values())  
+      # add hh to schedule
+      self.schedule.add(hh)
 
 
   def randomize_agents(self, agent_type):
@@ -507,13 +474,15 @@ class Sugarscepe(mesa.Model):
       # distribute the token (USD 150 PPP)
       self.intervention(50) 
 
-    if self.schedule.steps == 920:
+    # first large transfer 2 months after token
+    if self.schedule.steps == 860:
        # distribute first handoud (USD 860 PPP)
        self.intervention(300)
     
-    if self.schedule.steps == 1100:
-       # distribute first handoud (USD 860 PPP)
-       self.intervention(300)
+    # second large transger 8 months after token
+    #if self.schedule.steps == 1100:
+    #   # distribute first handoud (USD 860 PPP)
+    #   self.intervention(300)
     
 
   def assign_treatement_status(self):
@@ -524,8 +493,9 @@ class Sugarscepe(mesa.Model):
 
 ### Level 1 randomization
 
-    # assign high saturation status to 30 random markets
-    high_sat_mk = np.random.choice(self.all_markets, size=30, replace=False)
+    # assign high saturation status to 30 random markets (without replacment)
+    high_sat_mk = random.sample(self.all_markets, k=34)
+    print(high_sat_mk)
     for mk in high_sat_mk:
       setattr(mk, 'saturation', 1)
 
@@ -533,15 +503,15 @@ class Sugarscepe(mesa.Model):
 
     # assign control status to 2/3 of villages in low saturation mks 
     # assign treatment status to 2/3 of villages in high saturation mks 
+    treatment_villages  =[]
     for mk in self.all_markets:
       # choose treatment villages fraction depending on market saturation status
       treat_frac = 2/3 if mk.saturation == 1 else 1/3
-      mk_villages = mk.villages
-      treatment_villages = np.random.choice(mk_villages, int(len(mk_villages) * treat_frac), replace=False)
+      treatment_villages.extend(random.sample(mk.villages, k = int(len(mk.villages) * treat_frac)))
 
-      # assign treatment status to the selected villages
-      for vl in treatment_villages:
-        setattr(vl, 'treated', 1)
+    # assign treatment status to the selected villages
+    for vl in treatment_villages:
+      setattr(vl, 'treated', 1)
 
 ### Level 3 randomization 
 
@@ -549,13 +519,13 @@ class Sugarscepe(mesa.Model):
     self.treated_agents = []
     for vl in treatment_villages:
       sorted_population = sorted(vl.population, key=lambda x: x.money)
-      self.treated_agents.extend(sorted_population[:18])
+      self.treated_agents.extend(sorted_population[:30])
     
     # assign treatment status to the selected agents
     for agent in self.treated_agents:
       setattr(agent, 'treated', 1)
 
-    print(f"# treated hhs: {len(self.treated_agents)}")
+    print(f"# treated hhs: {len(self.treated_agents)}, # treated vls: {len(treatment_villages)}")
 
 
   def intervention(self, amount):
@@ -586,7 +556,7 @@ class Sugarscepe(mesa.Model):
     return f'N Households: {len(self.all_agents)} \nN Firms: {len(self.all_firms)} \nN Villages: {len(self.all_villages)}\nN Markets: {len(self.all_markets)}'
 
 
-def run_simulation(steps = 10):
+def run_simulation(steps = 100):
   start = timeit.default_timer()
 
   model = Sugarscepe()
@@ -602,13 +572,13 @@ def run_simulation(steps = 10):
   return model
 
 if __name__ == "__main__":
-    #cProfile.run("run_simulation()", filename="../data/profile_output.txt", sort='cumulative')
+    cProfile.run("run_simulation()", filename="../data/profile_output.txt", sort='cumulative')
     
     # Create a pstats.Stats object from the profile file
-    #profile_stats = pstats.Stats("../data/profile_output.txt")
+    profile_stats = pstats.Stats("../data/profile_output.txt")
 
     # Sort and print the top N entries with the highest cumulative time
-    #profile_stats.strip_dirs().sort_stats('cumulative').print_stats(20)
-    run_simulation()
+    profile_stats.strip_dirs().sort_stats('cumulative').print_stats(20)
+    #run_simulation()
     print('')
 

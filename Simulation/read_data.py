@@ -126,20 +126,22 @@ def create_agent_data():
 ### Market Data
 
     # load market data
-    df_mk = read_dataframe("GE_MarketData_Panel_ProductLevel_ECMA.dta", "df")
+    #df_mk = read_dataframe("GE_MarketData_Panel_ProductLevel_ECMA.dta", "df")
 
     # drop 1 market (109) without firm and hh affiliation
-    df_mk = df_mk.drop(df_mk[df_mk['market_id'] ==109].index)
+    #df_mk = df_mk.drop(df_mk[df_mk['market_id'] ==109].index)
+
+    # for markets add randomly created geo-data
+    mk_pos, county = create_random_coor(60)
+    df_mk = pd.DataFrame({'pos': mk_pos,
+                          'county': county,
+                          'market_id': np.arange(60)})
+
 
 ### Village Data 
 
     # Load village data
     df_vl = read_dataframe("GE_VillageLevel_ECMA.dta", "df")
-
-    # for villages add randomly created geo-data
-    vil_pos, county = create_random_coor(653)
-    df_vl["pos"] = (vil_pos)
-    df_vl["county"] = county  
 
     # add id of closest market to df_vl
     nrst_mk = read_dataframe("Village_NearestMkt_PUBLIC.dta", "df")

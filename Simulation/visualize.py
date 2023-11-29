@@ -205,7 +205,7 @@ def update_graph(option_slctd):
             G.add_edge(row.unique_id, dealer.unique_id)
 
     # create a subgraph with the agents to be displayed
-    village = 601010103008
+    village = 'v_2'
     agents_slctd = [agent.unique_id for agent in agents_lst if agent.village.unique_id == village]
     G = create_subgraph(G, agents_slctd)
     
