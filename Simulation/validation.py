@@ -7,6 +7,12 @@ from data_collector import Sparse_collector, Datacollector, Validation_collector
 import arviz as az
 import pandas as pd
 import seaborn as sns
+#@ TODO 
+# Make plots prettier:
+# - work out color concept
+# - fonts 
+# - etc.
+# Add confidence intervalls to line plot
 
 # @DELETE set display options. Not imperative for exectution
 pd.set_option('display.max_columns', 30)
@@ -52,8 +58,11 @@ variables = iter(df.columns[1:-1])
 for var in variables:
  compare_line(df, var, next(variables))
 
+#%%
+print(df[df['step'] == 122])
+print(df[df['step'] == 200])
+#%%
 
-print(df['Unemployment'])
 # Questions
 # OK 1) How does intervention group look like? mostly firm owners? -> mostly employed workers with low productivity
 # 2) Why dip in treated after token
@@ -67,14 +76,20 @@ print(df['Unemployment'])
 # 4) only so many more worker they can hire  
 
 # Approaches
+# 0) Scatter the distribution of money to make it last longer
 # 0) More firms -> more firm owners in treatment check how in data
 # 0) Choose 50% poorest and then randomize (ansers Q4? )
+# 0) Make hh act on different markets
 # 1) wage depending on firm performance
 # 1) Investment how? If firm assets increase make cobb douglas with capital
 # 2) Make effect last longer f.i. propensity to consume
 # 2) Alternative ocupation how? and how useful?
 # 2) Incorporate slack how?
 
+# Insights
+# 1) In simulation most recipients are employed low productivity households. Might explain why effect on other hh is just as much 
+
+print(df['Unemployment'])
 
 print(f" Treated firm: {len([agent for agent in model.treated_agents if agent.firm != None])}")
 print(f" Treaded no firm: {len([agent for agent in model.treated_agents if agent.firm == None])}")

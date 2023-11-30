@@ -7,6 +7,8 @@ import pstats
 import cProfile
 import random
 
+#@TODO
+# make village population normally distributed rather than uniform
 class Firm(mesa.Agent):
   """
   Type:        Mesa Agent Class
@@ -472,17 +474,17 @@ class Sugarscepe(mesa.Model):
       self.assign_treatement_status()
 
       # distribute the token (USD 150 PPP)
-      self.intervention(50) 
+      self.intervention(150) 
 
     # first large transfer 2 months after token
     if self.schedule.steps == 860:
        # distribute first handoud (USD 860 PPP)
-       self.intervention(300)
+       self.intervention(860)
     
     # second large transger 8 months after token
-    #if self.schedule.steps == 1100:
-    #   # distribute first handoud (USD 860 PPP)
-    #   self.intervention(300)
+    if self.schedule.steps == 1100:
+       # distribute first handoud (USD 860 PPP)
+       self.intervention(860)
     
 
   def assign_treatement_status(self):
@@ -494,7 +496,7 @@ class Sugarscepe(mesa.Model):
 ### Level 1 randomization
 
     # assign high saturation status to 30 random markets (without replacment)
-    high_sat_mk = random.sample(self.all_markets, k=34)
+    high_sat_mk = random.sample(self.all_markets, k=33)
     print(high_sat_mk)
     for mk in high_sat_mk:
       setattr(mk, 'saturation', 1)
@@ -519,7 +521,7 @@ class Sugarscepe(mesa.Model):
     self.treated_agents = []
     for vl in treatment_villages:
       sorted_population = sorted(vl.population, key=lambda x: x.money)
-      self.treated_agents.extend(sorted_population[:30])
+      self.treated_agents.extend(sorted_population[:34])
     
     # assign treatment status to the selected agents
     for agent in self.treated_agents:
