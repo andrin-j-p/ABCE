@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
 
-
 class Datacollector():
   """
   Type:        Helper Class 
@@ -159,9 +158,6 @@ class Sparse_collector():
     return np.array(sm_data).flatten(), df_hh, df_fm, df_md, df_td
 
 
-
-
-
 class Validation_collector():
   def __init__(self, model):
     self.model = model
@@ -234,5 +230,4 @@ class Validation_collector():
   
   def get_data(self):
     return  pd.DataFrame(self.data)
-
 

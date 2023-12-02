@@ -132,10 +132,10 @@ def create_agent_data():
     #df_mk = df_mk.drop(df_mk[df_mk['market_id'] ==109].index)
 
     # for markets add randomly created geo-data
-    mk_pos, county = create_random_coor(60)
+    mk_pos, county = create_random_coor(61)
     df_mk = pd.DataFrame({'pos': mk_pos,
                           'county': county,
-                          'market_id': np.arange(60)})
+                          'market_id': np.arange(61)})
 
 
 ### Village Data 

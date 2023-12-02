@@ -3,7 +3,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 import ABM
 from read_data import create_agent_data
-from data_collector import Sparse_collector, Datacollector, Validation_collector
+from Data_Collector import Sparse_collector, Datacollector, Validation_collector
 import arviz as az
 import pandas as pd
 import seaborn as sns
@@ -59,8 +59,14 @@ for var in variables:
  compare_line(df, var, next(variables))
 
 #%%
-print(df[df['step'] == 122])
-print(df[df['step'] == 200])
+df1 = df[df['step'] == 122]
+df2 = df[df['step'] == 200] 
+
+df1.iloc[:, 1:-1] = df1.iloc[:, 1:-1].mul(52 * 1.871)
+df2.iloc[:, 1:-1] = df2.iloc[:, 1:-1].mul(52 * 1.871)
+
+df_concat = pd.concat([df1, df2])
+print(df_concat)
 #%%
 
 # Questions
@@ -68,7 +74,7 @@ print(df[df['step'] == 200])
 # 2) Why dip in treated after token
 # 3) Why demand/income/ money increases more for control
 # 4) how does benefit differ firm owner and employees
-# 4) Why only token permanent effect 
+# OK 4) Why only token permanent effect? It does not, it is due to split into rich and poor 
 
 # Explenations
 # 2) got unemployed recently not yet at rock bottom (plausible if treated mostly workers)

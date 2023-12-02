@@ -1,7 +1,8 @@
 import mesa
 import numpy as np
 from read_data import create_agent_data
-from data_collector import Datacollector
+from Data_Collector import Datacollector
+from Intervention_Handler import Intervention_handler
 import timeit
 import pstats
 import cProfile
@@ -51,20 +52,19 @@ class Firm(mesa.Agent):
     """
     Type:        Method 
     Description: Implements heuristics for price setting
-    Exectuted:   Monthly 
     """
     current_price = self.price
 
-    # price is increased with probability theta if the follwoing conditions are met:
-    # 1) the stock is below the minimum inventory
-    # 2) price last month was strictly smaller than the maximum price
+    # Price is increased with probability theta if the follwoing conditions are met:
+    # 1) The stock is below the minimum inventory
+    # 2) Price last month was strictly smaller than the maximum price
     if self.stock < self.min_stock and current_price * (1 + self.nu) < self.max_price:
       if np.random.uniform(0, 1) <= self.theta:
         current_price *= (1 + self.nu) #self.nu * (current_price - self.marginal_cost)
 
-    # price is decresed with probability theta if the follwoing conditions are met:
-    # 1) the stock exceeds the maximum inventory
-    # 2) price last month was strictly larger than the marginal cost
+    # Price is decresed with probability theta if the follwoing conditions are met:
+    # 1) The stock exceeds the maximum inventory
+    # 2) Price last month was strictly larger than the marginal cost
     elif self.stock > self.max_stock: #and current_price * (1-self.nu) > self.marginal_cost:
       if np.random.uniform(0, 1) <= self.theta:
         current_price -= self.nu * (current_price - self.marginal_cost)
@@ -76,7 +76,6 @@ class Firm(mesa.Agent):
     """
     Type:        Method 
     Description: Generate output according to firm idiosyncratic production function @ source of heterog
-    Execute:     Monthly 
     """
     # Output is a function of employees' and firms' productivity parameters
     amount = self.productivity * (sum(employee.productivity for employee in self.employees)  + self.owner.productivity)
@@ -87,7 +86,6 @@ class Firm(mesa.Agent):
     """
     Type:        Method 
     Description: The amount of labor and thereby the level of production is chosen
-    Execute:     Monthly ? (leninik hiring is performed daily)
     """
     # A random worker is hired if:
     # 1) the inventory at the end of the month is below the minimum stock 
@@ -119,7 +117,6 @@ class Firm(mesa.Agent):
     """
     Type:        Method 
     Description: Pay wages and distribute the remaining profits
-    Execute:     Monthly 
     """
     # Pay wages based on the employees productivity 
     for employee in self.employees:
@@ -162,7 +159,6 @@ class Firm(mesa.Agent):
     """
     Type:        Method
     Description: Firm step function 
-    Execute:     Monthly
     """
     # If it is the end of a month the month
     if self.model.schedule.steps%7 == 0:
@@ -218,7 +214,6 @@ class Agent(mesa.Agent):
     """
     Type:         Method 
     Description:  Maintains the list of best dealers  
-    Used in:      buy_goods
     """
     # retrieve the list of all firms operating on the market
     potential_dealers = self.village.market.vendors
@@ -278,6 +273,10 @@ class Agent(mesa.Agent):
                                              "from": self.village.unique_id, 'to': dealer.owner.village.unique_id})
 
   def step(self):
+    """
+    Type:        Method
+    Description: Household step function 
+    """
     # hh step only needs to be executed on market day
     if  (self.model.schedule.steps - self.market_day)%7 == 0:
       # get the list of best dealers
@@ -316,8 +315,7 @@ class Agent(mesa.Agent):
 class Village(mesa.Agent):
     """
     Type:         Mesa Agent Class
-    Description:  Physical location of households. Deterimines social environment of agents
-                  level at which spillovers occur
+    Description:  Physical location of households, and by extension firms. Determines social environment of agents
     """
     def __init__(self, unique_id, model, pos, county, market):
       super().__init__(unique_id, model)
@@ -336,7 +334,6 @@ class Market(mesa.Agent):
   """
   Type:         Mesa Agent Class
   Description:  Entity were phisical transactions take place. 
-  Used in:      Agent.trade(), 
   """
   def __init__(self, unique_id, model, pos, county):
     super().__init__(unique_id, model)
@@ -352,10 +349,10 @@ class Market(mesa.Agent):
 
 class Sugarscepe(mesa.Model):
   """
-  Type:         Mesa Model Class
-  Description:  Main Class for the simulation
+  Type:         Mesa model class
+  Description:  Main simulation class
   """
-  def __init__(self, min_lat=-0.05 , max_lat=0.25, min_lon=34.00, max_lon=34.5, N=60000):
+  def __init__(self, min_lat=-0.05 , max_lat=0.25, min_lon=34.00, max_lon=34.5, N=65383):
     print('init was called')
 
     # confine the geographic space of the grid to the study area
@@ -371,6 +368,9 @@ class Sugarscepe(mesa.Model):
     # initialize costum datacollector
     self.datacollector = Datacollector(self)
 
+    # initialize intervention handler
+    self.intervention_handler = Intervention_handler(self)
+
     # initialize scheduler
     self.schedule = mesa.time.RandomActivationByType(self)
 
@@ -380,6 +380,8 @@ class Sugarscepe(mesa.Model):
 ### Agentize the grid with mks
     self.all_markets = []
     for row in self.df_mk.itertuples():
+
+      # Create market instance and add it to schedule
       mk = Market(unique_id=f"m_{row.market_id}", model=self, pos=row.pos, county=row.county)
       self.all_markets.append(mk)
       self.schedule.add(mk)
@@ -391,6 +393,7 @@ class Sugarscepe(mesa.Model):
       pos = (mk.pos[0] + np.random.uniform(-0.01, 0.01), # pos is a tuple of shape (lat, lon) as used for continuous_grid in mesa
              mk.pos[1] + np.random.uniform(-0.01, 0.01)) 
       
+      # Create village instance and add it to schedule
       vl = Village(unique_id=f"v_{i}", model=self, pos=mk.pos, county=mk.county, market=mk)
       mk.villages.append(vl)
       self.all_villages.append(vl)
@@ -404,6 +407,8 @@ class Sugarscepe(mesa.Model):
       fm = None
 
       if np.random.random() < 0.3:
+
+        # Create firm instance and add it to schedule
         fm = Firm(unique_id=f"f_{i}", model=self, market=vl.market, village=vl)
         vl.market.vendors.append(fm)
         self.all_firms.append(fm)
@@ -412,6 +417,7 @@ class Sugarscepe(mesa.Model):
       pos = (vl.pos[0] + np.random.uniform(-0.0003, 0.0003), # pos is a tuple of shape (lat, lon) as used for continuous_grid in mesa
              vl.pos[1] + np.random.uniform(-0.0003, 0.0003)) 
       
+      # Create hh instance
       hh = Agent(unique_id=f"h_{i}", model=self, pos=pos, village=vl, firm=fm, employer=None)
       
       # add hh as firm owner if applicable
@@ -432,13 +438,13 @@ class Sugarscepe(mesa.Model):
   def randomize_agents(self, agent_type):
     """
     Type:        Helper Method
-    Description: Used to create a ranomized list of all hh, fm, mk in the model
+    Description: Used to create a ranomized list of all hh, fm, mk in the model.
                  Required to avoid first mover advantages (see f.i. Axtell 2022 p. ?)
     """
-    a = f"all_{agent_type}"
-    agent_list = getattr(self, a)
-    agent_shuffle = list(agent_list)
-    return agent_shuffle
+    agent_name = f"all_{agent_type}"
+    agent_list = getattr(self, agent_name)
+    agent_shuffled = random.sample(agent_list, len(agent_list))
+    return agent_shuffled
   
 
   def step(self):
@@ -446,97 +452,31 @@ class Sugarscepe(mesa.Model):
     Type:         Method
     Description:  Model step function. Calls all entities' step functions
     """
-    # exectute step for each firm entity
+    # Create randomized list of fms and exectute their step functions
     fm_shuffle = self.randomize_agents('firms')
     for firm in fm_shuffle:
-      firm.step()
+      firm.step() # executes 'set_price()', 'set_labor()', 'produce()', 'distribute_profit()'
 
-    # create randomized list of hh and call their step functions 
+    # Create randomized list of hhs and execute their step functions 
     hh_shuffle = self.randomize_agents('agents')
     for hh in hh_shuffle:
-        hh.step() # executes 'find_dealer()' and 'trade()'
+        hh.step() # executes 'find_dealer()', 'trade()'
 
-    # create ranomized list of mk and call their step function
+    # Create ranomized list of mks and execute their step functions
     mk_shuffle = self.randomize_agents('markets')
     for mk in mk_shuffle:
       mk.step() # resets costumers list to []
 
-    # collect data
+    # Collect data for current step
     self.datacollector.collect_data()
 
-    # for data collector to track the number of steps
+    # Start the intervention after the burn-in period
+    current_step = self.schedule.steps
+    if current_step >= 790:
+      self.intervention_handler.UCT(current_step)
+
+    # Increment model step
     self.schedule.steps += 1 
-
-    # Conduct the intervention at step 800
-    if self.schedule.steps == 800:
-
-      # assign treatment status 
-      self.assign_treatement_status()
-
-      # distribute the token (USD 150 PPP)
-      self.intervention(150) 
-
-    # first large transfer 2 months after token
-    if self.schedule.steps == 860:
-       # distribute first handoud (USD 860 PPP)
-       self.intervention(860)
-    
-    # second large transger 8 months after token
-    if self.schedule.steps == 1100:
-       # distribute first handoud (USD 860 PPP)
-       self.intervention(860)
-    
-
-  def assign_treatement_status(self):
-    """
-    Type:        Method
-    Description: Assigns saturation and treatment status on market, village and agnet level
-    """
-
-### Level 1 randomization
-
-    # assign high saturation status to 30 random markets (without replacment)
-    high_sat_mk = random.sample(self.all_markets, k=33)
-    print(high_sat_mk)
-    for mk in high_sat_mk:
-      setattr(mk, 'saturation', 1)
-
-### Level 2 randomizaton
-
-    # assign control status to 2/3 of villages in low saturation mks 
-    # assign treatment status to 2/3 of villages in high saturation mks 
-    treatment_villages  =[]
-    for mk in self.all_markets:
-      # choose treatment villages fraction depending on market saturation status
-      treat_frac = 2/3 if mk.saturation == 1 else 1/3
-      treatment_villages.extend(random.sample(mk.villages, k = int(len(mk.villages) * treat_frac)))
-
-    # assign treatment status to the selected villages
-    for vl in treatment_villages:
-      setattr(vl, 'treated', 1)
-
-### Level 3 randomization 
-
-    # for each treatment village identify the 30 poorest households
-    self.treated_agents = []
-    for vl in treatment_villages:
-      sorted_population = sorted(vl.population, key=lambda x: x.money)
-      self.treated_agents.extend(sorted_population[:34])
-    
-    # assign treatment status to the selected agents
-    for agent in self.treated_agents:
-      setattr(agent, 'treated', 1)
-
-    print(f"# treated hhs: {len(self.treated_agents)}, # treated vls: {len(treatment_villages)}")
-
-
-  def intervention(self, amount):
-    """
-    Type:        Method
-    Description: Simulates the unconditional cash transfer
-    """
-    for agent in self.treated_agents:
-      agent.money += amount
 
 
   def run_simulation(self, steps):

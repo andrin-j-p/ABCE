@@ -274,3 +274,47 @@ fig.show()
 
 
 
+#%%
+import numpy as np
+import math
+import matplotlib.pyplot as plt
+
+def create_list_partition(input_list):
+    output_list = []
+    n = math.floor(len(input_list))
+
+    # while the list is larger than 10 split the input list into exponentially decaying sublist
+    while n > 10:
+        n = math.floor(len(input_list)/7)
+        output_list.append(input_list[:n])
+        input_list = input_list[n:]
+
+    # split the remaining elements into equally sized sublists and append them
+    remainders = np.array_split(input_list, len(input_list)/8)
+    output_list.extend([sublist.tolist() for sublist in remainders])
+    return output_list
+
+
+input_list = np.arange(10500)
+output_list = create_list_partition(input_list)
+
+data = [len(sublist) for sublist in output_list]
+print(data)
+# %%
+num_bars = len(data) // 4 + (len(data) % 4 > 0)  # Ceiling division
+
+# Calculate the averages for each group of four entries
+averages = [np.mean(data[i*4:(i+1)*4]) for i in range(num_bars - 1)]
+
+# For the last bar, calculate the average of the remaining entries
+last_average = np.mean(data[(num_bars - 1) * 4:])
+
+# Append the last average to the averages list
+averages.append(last_average)
+
+# Create a bar plot
+plt.bar(range(1, num_bars + 1), averages)
+plt.show()
+plt.bar(range(len(data)),data)
+plt.show()
+# %%
