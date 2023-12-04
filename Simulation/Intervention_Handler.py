@@ -1,7 +1,6 @@
 import random
 import numpy as np
 import math
-
 def create_list_partition(input_list):
     """
     Type:         Helper function 
@@ -12,7 +11,7 @@ def create_list_partition(input_list):
 
     # while the list is larger than 10 split the input list into exponentially decaying sublist
     while n > 10:
-        n = math.floor(len(input_list)/5)
+        n = math.floor(len(input_list)/3)
         output_list.append(input_list[:n])
         input_list = input_list[n:]
 
@@ -92,7 +91,7 @@ class Intervention_handler():
 
 ### Level 2 randomizaton
 
-    # assign control status to 2/3 of villages in low saturation mks 
+    # assign treatment status to 1/3 of villages in low saturation mks 
     # assign treatment status to 2/3 of villages in high saturation mks 
     treatment_villages  =[]
     for mk in self.model.all_markets:

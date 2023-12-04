@@ -318,3 +318,4 @@ plt.show()
 plt.bar(range(len(data)),data)
 plt.show()
 # %%
+

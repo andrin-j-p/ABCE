@@ -133,15 +133,13 @@ class Firm(mesa.Agent):
     self.money  = 0
 
     # If profit positiv: pay part of it to owner
-    # note: Plus not minus
-    # @Make this a parameter
     if self.profit >= 0:
       reserves = 0.1 if self.assets >= 0 else 0.9
       self.assets += reserves * self.profit
       self.owner.income = (1 - reserves) * self.profit
       self.owner.money += (1 - reserves) * self.profit
 
-    elif self.profit < 0 and self.assets + self.profit >= 0:
+    elif self.profit <= 0 and self.assets + self.profit >= 0:
       self.assets += self.profit
 
       payout = 0.1 * self.assets
@@ -153,6 +151,7 @@ class Firm(mesa.Agent):
       self.assets += self.profit
       self.owner.income = 0
       self.owner.money += 0
+
 
       
   def step(self):
@@ -498,7 +497,8 @@ class Sugarscepe(mesa.Model):
     return f'N Households: {len(self.all_agents)} \nN Firms: {len(self.all_firms)} \nN Villages: {len(self.all_villages)}\nN Markets: {len(self.all_markets)}'
 
 
-def run_simulation(steps = 100):
+def run_simulation(steps = 50):
+
   start = timeit.default_timer()
 
   model = Sugarscepe()
@@ -513,14 +513,16 @@ def run_simulation(steps = 100):
   print('Time: ', stop - start)  
   return model
 
+
 if __name__ == "__main__":
-    cProfile.run("run_simulation()", filename="../data/profile_output.txt", sort='cumulative')
+
+    #cProfile.run("run_simulation()", filename="../data/profile_output.txt", sort='cumulative')
     
     # Create a pstats.Stats object from the profile file
-    profile_stats = pstats.Stats("../data/profile_output.txt")
+    #profile_stats = pstats.Stats("../data/profile_output.txt")
 
     # Sort and print the top N entries with the highest cumulative time
-    profile_stats.strip_dirs().sort_stats('cumulative').print_stats(20)
-    #run_simulation()
+    #profile_stats.strip_dirs().sort_stats('cumulative').print_stats(20)
+    run_simulation()
     print('')
 

@@ -31,7 +31,6 @@ class Model(ABM.Sugarscepe):
     self.datacollector = Sparse_collector(self) #Validation_collector(self)#
     self.data = []
 
-
 def compare_line(df, y1, y2):
 
   sns.lineplot(data=df, x='step', y=y1, label='Treated', color= '#5284C2')
@@ -57,17 +56,35 @@ df = model.datacollector.get_data()
 variables = iter(df.columns[1:-1])
 for var in variables:
  compare_line(df, var, next(variables))
+ next(variables) # skip control variable
+ next(variables)
 
 #%%
 df1 = df[df['step'] == 122]
-df2 = df[df['step'] == 200] 
-
-df1.iloc[:, 1:-1] = df1.iloc[:, 1:-1].mul(52 * 1.871)
-df2.iloc[:, 1:-1] = df2.iloc[:, 1:-1].mul(52 * 1.871)
+df2 = df[df['step'] == 192] 
 
 df_concat = pd.concat([df1, df2])
-print(df_concat)
+
+diff_row = df_concat.diff().iloc[1]
+
+# Create a new DataFrame with the original rows and the calculated difference row
+result_df = pd.concat([df_concat, pd.DataFrame([diff_row], columns=df.columns)])
+result_df = result_df.reset_index(drop=True)
+
+
+print(f"HH expenditure {round(result_df.loc[2,'Expenditure_Recipient'], 2): >13}{round(result_df.loc[2,'Expenditure_Nonrecipient'], 2) : >13}{round(result_df.loc[2,'Expenditure'],2) :>13}")
+print(f"HH assets      {round(result_df.loc[2,'Assets_Recipient'], 2): >13}{round(result_df.loc[2,'Assets_Nonrecipient'],2 ) : >13}{round(result_df.loc[2,'Assets'],2):>13}")
+print(f"HH income      {round(result_df.loc[2,'Income_Recipient'], 2) : >13}{round(result_df.loc[2,'Income_Nonrecipient'],2): >13}{round(result_df.loc[2,'Income'],2) :>13}")
+print(f"FM profit      {round(result_df.loc[2,'Profit_Recipient'], 2) : >13}{round(result_df.loc[2,'Profit_Nonrecipient'],2) : >13}{round(result_df.loc[2,'Profit'],2) :>13}")
+print(f"FM revenue     {round(result_df.loc[2,'Revenue_Recipient'], 2): >13}{round(result_df.loc[2,'Revenue_Nonrecipient'],2): >13}{round(result_df.loc[2,'Revenue'],2) :>13}")
+print(f"FM inventory   {round(result_df.loc[2,'Inventory_Recipient'], 2): >13}{round(result_df.loc[2,'Inventory_Nonrecipient'],2): >13}{round(result_df.loc[2,'Inventory'],2) :>13}")
+#print(f"FM inventory  {df2['Inventory_Recipient'] -   df2['Inventory_Control']}   {df2['Inventory_Nonrecipient'] -   df2['Inventory_Control']}   {df2['Inventory_Control']}")
 #%%
+diff_row = df_concat.diff().iloc[1]
+
+# Create a new DataFrame with the original rows and the calculated difference row
+result_df = pd.concat([df_concat, pd.DataFrame([diff_row], columns=df.columns)])
+print(result_df)
 
 # Questions
 # OK 1) How does intervention group look like? mostly firm owners? -> mostly employed workers with low productivity
@@ -141,14 +158,15 @@ def plot_dist(data, title, lim):
 # instantiate the model and run it for 1000 burn-in periods
 model = Model()
 model.datacollector = Sparse_collector(model)
-model.run_simulation(850)
+model.run_simulation(800)
 
 # get simulated data
 df_sm_p1, df_hh_p1, df_fm_p1, df_md_p1, df_td_p1 = model.datacollector.get_calibration_data()
 
 # run the model for another 500 periods to compare the change
-model.run_simulation(550)
+model.run_simulation(20)
 df_sm_p2, df_hh_p2, df_fm_p2, df_md_p2, df_td_p2 = model.datacollector.get_calibration_data() 
+
 
 # compare distributions
 compare_dist(df_hh_p1['demand'].values, df_hh_p2['demand'], 'Demand', (0, 70) )

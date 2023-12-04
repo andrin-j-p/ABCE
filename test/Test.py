@@ -244,20 +244,46 @@ class TestABM(unittest.TestCase):
 
     def test_treated_villages(self):
         """
-        test 1: 
+        test 1: vl on low saturation mk have low sat status
+        test 2: vl on high saturaiton mk have high saturation status
         """
-        pass
+        for vl in model.all_villages:
+            self.assertEqual(vl.saturation, vl.market.saturation)
 
     def test_treated_market(self):
         """
-        test 30 markets with high saturation
+        test1: fraction treatment villages high saturation market
+        test2: fraction treatment villages low saturation market
+        test2: 28 markets with high saturation
+        test3: 33 markets wiht low saturation 
         """
         high_sat_count = 0
+        low_sat_count =  0
         for mk in model.all_markets:
+
             if mk.saturation == 1:
                 high_sat_count += 1
+
+                treated_vl = 0
+                for vl in mk.villages:
+                    if vl.treated == 1:
+                        treated_vl += 1
+
+                self.assertEqual(int(len(mk.villages)*(2/3)), treated_vl)
+            
+            if mk.saturation == 0:
+                low_sat_count += 1
+
+                control_vl = 0
+                for vl in mk.villages:
+                    if vl.treated == 1:
+                        control_vl += 1
+                
+                self.assertEqual(int(len(mk.villages)*(1/3)), control_vl)
+
         
-        self.assertEqual(high_sat_count, 30)
+        self.assertEqual(high_sat_count, 33)
+        self.assertEqual(low_sat_count, 28)
 
 ### Semantics
 
