@@ -1,6 +1,7 @@
 import random
 import numpy as np
 import math
+
 def create_list_partition(input_list):
     """
     Type:         Helper function 
@@ -93,11 +94,12 @@ class Intervention_handler():
 
     # assign treatment status to 1/3 of villages in low saturation mks 
     # assign treatment status to 2/3 of villages in high saturation mks 
-    treatment_villages  =[]
+    treatment_villages  = []
     for mk in self.model.all_markets:
       # choose treatment villages fraction depending on market saturation status
-      treat_frac = 2/3 if mk.saturation == 1 else 1/3
-      treatment_villages.extend(random.sample(mk.villages, k = int(len(mk.villages) * treat_frac)))
+      if mk.saturation == 1:
+        treat_frac = 2/3
+        treatment_villages.extend(random.sample(mk.villages, k = int(len(mk.villages) * treat_frac)))
 
     # assign treatment status to the selected villages
     for vl in treatment_villages:
@@ -105,10 +107,16 @@ class Intervention_handler():
 
 ### Level 3 randomization 
 
-    # for each treatment village identify the 30 poorest households
-    for vl in treatment_villages:
+    # for each village identify the 30 poorest households
+    for vl in self.model.all_villages:
       sorted_population = sorted(vl.population, key=lambda x: x.money)
-      self.treated_agents.extend(sorted_population[:34])
+      poorest_hh = sorted_population[:45]
+
+      for agent in poorest_hh:
+        setattr(agent, 'eligible', 1)
+
+      if vl in treatment_villages:
+        self.treated_agents.extend(poorest_hh)
     
     # assign treatment status to the selected agents
     for agent in self.treated_agents:

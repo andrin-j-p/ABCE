@@ -33,8 +33,8 @@ class Model(ABM.Sugarscepe):
 
 def compare_line(df, y1, y2):
 
-  sns.lineplot(data=df, x='step', y=y1, label='Treated', color= '#5284C2')
-  sns.lineplot(data=df, x='step', y=y2, label='Control', color= '#52C290')
+  sns.lineplot(data=df, x='step', y=y1, label='All', color= '#5284C2')
+  sns.lineplot(data=df, x='step', y=y2, label='Treated', color= '#52C290')
   plt.axvline(x=123, color='red', linestyle='--')
 
   # Set plot labels and title
@@ -60,25 +60,16 @@ for var in variables:
  next(variables)
 
 #%%
-df1 = df[df['step'] == 122]
-df2 = df[df['step'] == 192] 
+result_df = df[df['step'] == 192] 
 
-df_concat = pd.concat([df1, df2])
+converstion = 52*1.871
 
-diff_row = df_concat.diff().iloc[1]
-
-# Create a new DataFrame with the original rows and the calculated difference row
-result_df = pd.concat([df_concat, pd.DataFrame([diff_row], columns=df.columns)])
-result_df = result_df.reset_index(drop=True)
-
-
-print(f"HH expenditure {round(result_df.loc[2,'Expenditure_Recipient'], 2): >13}{round(result_df.loc[2,'Expenditure_Nonrecipient'], 2) : >13}{round(result_df.loc[2,'Expenditure'],2) :>13}")
-print(f"HH assets      {round(result_df.loc[2,'Assets_Recipient'], 2): >13}{round(result_df.loc[2,'Assets_Nonrecipient'],2 ) : >13}{round(result_df.loc[2,'Assets'],2):>13}")
-print(f"HH income      {round(result_df.loc[2,'Income_Recipient'], 2) : >13}{round(result_df.loc[2,'Income_Nonrecipient'],2): >13}{round(result_df.loc[2,'Income'],2) :>13}")
-print(f"FM profit      {round(result_df.loc[2,'Profit_Recipient'], 2) : >13}{round(result_df.loc[2,'Profit_Nonrecipient'],2) : >13}{round(result_df.loc[2,'Profit'],2) :>13}")
-print(f"FM revenue     {round(result_df.loc[2,'Revenue_Recipient'], 2): >13}{round(result_df.loc[2,'Revenue_Nonrecipient'],2): >13}{round(result_df.loc[2,'Revenue'],2) :>13}")
-print(f"FM inventory   {round(result_df.loc[2,'Inventory_Recipient'], 2): >13}{round(result_df.loc[2,'Inventory_Nonrecipient'],2): >13}{round(result_df.loc[2,'Inventory'],2) :>13}")
-#print(f"FM inventory  {df2['Inventory_Recipient'] -   df2['Inventory_Control']}   {df2['Inventory_Nonrecipient'] -   df2['Inventory_Control']}   {df2['Inventory_Control']}")
+print(f"HH expenditure {round(float(result_df['Expenditure_Recipient']-result_df['Expenditure_Control'])*converstion, 2): >13}{round(float(result_df['Expenditure_Nonrecipient'] -result_df['Expenditure_Control'])*converstion, 2) : >13}{round(float(result_df['Expenditure_Control'])*converstion,2) :>13}")
+print(f"HH assets      {round(float(result_df['Assets_Recipient']-result_df['Assets_Control']), 2): >13}{                     round(float(result_df['Assets_Nonrecipient'] - result_df['Expenditure_Control']),2 ) : >13}{                 round(float(result_df['Assets_Control']),2):>13}")
+print(f"HH income      {round(float(result_df['Income_Recipient']-result_df['Income_Control'])*converstion, 2) : >13}{        round(float(result_df['Income_Nonrecipient'] - result_df['Income_Control'] )*converstion,2): >13}{           round(float(result_df['Income_Control'])*converstion,2) :>13}")
+print(f"FM profit      {round(float(result_df['Profit_Recipient']-result_df['Profit_Control'])*converstion, 2) : >13}{        round(float(result_df['Profit_Nonrecipient'] - result_df['Profit_Control'])*converstion,2) : >13}{           round(float(result_df['Profit_Control'])*converstion,2) :>13}")
+print(f"FM revenue     {round(float(result_df['Revenue_Recipient']-result_df['Revenue_Control'])*converstion, 2): >13}{       round(float(result_df['Revenue_Nonrecipient'] - result_df['Revenue_Control'])*converstion,2): >13}{          round(float(result_df['Revenue_Control']),2) :>13}")
+print(f"FM inventory   {round(float(result_df['Stock_Recipient']-result_df['Stock_Control']), 2): >13}{                       round(float(result_df['Stock_Nonrecipient'] - result_df['Stock_Control']),2): >13}{                          round(float(result_df['Stock_Control']),2) :>13}")
 #%%
 diff_row = df_concat.diff().iloc[1]
 

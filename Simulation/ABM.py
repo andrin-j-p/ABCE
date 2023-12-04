@@ -152,7 +152,6 @@ class Firm(mesa.Agent):
       self.owner.income = 0
       self.owner.money += 0
 
-
       
   def step(self):
     """
@@ -201,6 +200,9 @@ class Agent(mesa.Agent):
     self.employer = employer
     self.best_dealers = []
     self.productivity = float(np.random.lognormal(self.mu, self.sigma, size=1) + 1)
+
+    # initialize treatment status
+    self.eligible = 0
     self.treated = 0
 
     # initialize consumption related characteristics
@@ -323,7 +325,6 @@ class Village(mesa.Agent):
       self.market = market
       self.population = []
       self.treated = 0
-      self.saturation = 0
 
     def __repr__(self):
        return f'Village: {self.unique_id} at coordinates {self.pos} in county {self.county}'
