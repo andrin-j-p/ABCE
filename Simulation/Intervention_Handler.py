@@ -17,7 +17,7 @@ def create_list_partition(input_list):
         input_list = input_list[n:]
 
     # split the remaining elements into equally sized sublists and append them
-    remainders = np.array_split(input_list, len(input_list)/8)
+    remainders = np.array_split(input_list, len(input_list)/3)
     output_list.extend([sublist.tolist() for sublist in remainders])
     return output_list
 
@@ -29,6 +29,7 @@ class Intervention_handler():
   """
   def __init__(self, model):
     self.model = model
+    self.control = False
     self.treated_agents = []
     self.UCT_1 = []
     self.UCT_2 = []
@@ -39,16 +40,20 @@ class Intervention_handler():
     Type:        Method
     Description: Coordinates the time of the UCTs
     """    
-    # Assign treatment status at step 790
-    if current_step == 790:
+    intervention_step = 360
+    # Assign treatment status at step 350
+    if current_step == intervention_step:
       # assign treatment status 
       self.assign_treatement_status()
 
-    # Start weekly rollout of transfers at step 800 
-    if current_step >= 800 and current_step%7==0:
+    if self.control == True:
+      return
 
-      # Start rollout of the token at step 825
-      if current_step >= 800 and len(self.UCT_1) > 0:
+    # Start weekly rollout of transfers at step 350 
+    if current_step >= intervention_step and current_step%7==0:
+
+      # Start rollout of the token 15 days after week s after treatment assignment
+      if current_step >= intervention_step + 15 and len(self.UCT_1) > 0:
 
         # Get batch of agents receiving the token in the current week
         agents = self.UCT_1.pop(0)
@@ -58,7 +63,7 @@ class Intervention_handler():
         self.intervention(80, agents) 
 
       # Start first UCT rollout at step 860 (2 months after token)
-      if current_step >= 860 and len(self.UCT_2) > 0:
+      if current_step >= intervention_step + 75 and len(self.UCT_2) > 0:
 
         # Get the batch of agents to receiving UCT 1 in the current week
         agents = self.UCT_2.pop(0)
@@ -68,7 +73,7 @@ class Intervention_handler():
         self.intervention(460, agents)
         
       # Start second UCT rollout at step 1100  (8 months after token)
-      if current_step >= 1100 and len(self.UCT_3) > 0:
+      if current_step >= intervention_step + 240 and len(self.UCT_3) > 0:
 
         # Get the batch of agents to receiving UCT 2 in the current week
         agents = self.UCT_3.pop(0)
@@ -97,9 +102,8 @@ class Intervention_handler():
     treatment_villages  = []
     for mk in self.model.all_markets:
       # choose treatment villages fraction depending on market saturation status
-      if mk.saturation == 1:
-        treat_frac = 2/3
-        treatment_villages.extend(random.sample(mk.villages, k = int(len(mk.villages) * treat_frac)))
+      treat_frac = 2/3 if mk.saturation == 1 else 1/3
+      treatment_villages.extend(random.sample(mk.villages, k = int(len(mk.villages) * treat_frac)))
 
     # assign treatment status to the selected villages
     for vl in treatment_villages:
@@ -108,19 +112,14 @@ class Intervention_handler():
 ### Level 3 randomization 
 
     # for each village identify the 30 poorest households
-    for vl in self.model.all_villages:
+    for vl in treatment_villages:
       sorted_population = sorted(vl.population, key=lambda x: x.money)
-      poorest_hh = sorted_population[:45]
-
-      for agent in poorest_hh:
-        setattr(agent, 'eligible', 1)
-
-      if vl in treatment_villages:
-        self.treated_agents.extend(poorest_hh)
+      eligible_hh = sorted_population[:33]
+      self.treated_agents.extend(eligible_hh)
     
     # assign treatment status to the selected agents
-    for agent in self.treated_agents:
-      setattr(agent, 'treated', 1)
+    for hh in self.treated_agents:
+      setattr(hh, 'treated', 1)
 
     # declare the stack for 3 phase treatment rollout
     self.UCT_1 = create_list_partition(self.treated_agents)

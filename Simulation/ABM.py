@@ -1,7 +1,7 @@
 import mesa
 import numpy as np
 from read_data import create_agent_data
-from Data_Collector import Datacollector
+from Datacollector import Datacollector
 from Intervention_Handler import Intervention_handler
 import timeit
 import pstats
@@ -151,6 +151,12 @@ class Firm(mesa.Agent):
       self.assets += self.profit
       self.owner.income = 0
       self.owner.money += 0
+    
+    if self.assets > 300 and len(self.employees > 0):
+      payout = 0.1*(self.assets-300)/len(self.employees)
+      for employee in self.employees:
+        employee.income += payout
+        employee.money += payout
 
       
   def step(self):
@@ -161,8 +167,9 @@ class Firm(mesa.Agent):
     # If it is the end of a month the month
     if self.model.schedule.steps%7 == 0:
       ## END OF MONTH
-      # pay out wages and owner
+      # pay wages and owner and caluclate revenue 
       self.distribute_profit()
+      self.revenue = self.sales * self.price
 
       ## BEGINNING OF MONTH
       # set the min_stock to the sales of previous month
@@ -202,7 +209,6 @@ class Agent(mesa.Agent):
     self.productivity = float(np.random.lognormal(self.mu, self.sigma, size=1) + 1)
 
     # initialize treatment status
-    self.eligible = 0
     self.treated = 0
 
     # initialize consumption related characteristics
@@ -352,7 +358,7 @@ class Sugarscepe(mesa.Model):
   Type:         Mesa model class
   Description:  Main simulation class
   """
-  def __init__(self, min_lat=-0.05 , max_lat=0.25, min_lon=34.00, max_lon=34.5, N=65383):
+  def __init__(self, seed= 0, min_lat=-0.05 , max_lat=0.25, min_lon=34.00, max_lon=34.5, N=65383):
     print('init was called')
 
     # confine the geographic space of the grid to the study area
@@ -406,7 +412,7 @@ class Sugarscepe(mesa.Model):
       vl = self.all_villages[i % len(self.all_villages)]
       fm = None
 
-      if np.random.random() < 0.3:
+      if np.random.random() < 0.48:
 
         # Create firm instance and add it to schedule
         fm = Firm(unique_id=f"f_{i}", model=self, market=vl.market, village=vl)
@@ -432,7 +438,7 @@ class Sugarscepe(mesa.Model):
       self.all_agents.append(hh)
 
       # add hh to schedule
-      self.schedule.add(hh)
+      self.schedule.add(hh)        
 
 
   def randomize_agents(self, agent_type):
@@ -472,7 +478,7 @@ class Sugarscepe(mesa.Model):
 
     # Start the intervention after the burn-in period
     current_step = self.schedule.steps
-    if current_step >= 790:
+    if current_step >= 350:
       self.intervention_handler.UCT(current_step)
 
     # Increment model step

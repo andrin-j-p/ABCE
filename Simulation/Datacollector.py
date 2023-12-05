@@ -186,7 +186,7 @@ class Validation_collector():
                 for agent in self.model.all_agents]
 
 ### FM data
-    fm_data = [(firm.assets, firm.profit, firm.sales * firm.price, firm.stock, firm.village.treated, firm.market.saturation) 
+    fm_data = [(firm.assets, firm.profit, firm.revenue, firm.stock, firm.village.treated, firm.market.saturation) 
                  for firm in self.model.all_firms]
     
 ### MD data
@@ -199,53 +199,42 @@ class Validation_collector():
     # Create DataFrames for agents and firms
     hh_df = pd.DataFrame(hh_data, columns=['Income', 'Money', 'Expenditure', 'Firm', 'Employer', 'Treated', 'Saturation'])
     fm_df = pd.DataFrame(fm_data, columns=['Assets', 'Profit', 'Revenue', 'Stock','Treated', 'Saturation'])
-    #md_df = pd.DataFrame(md_data, columns=['No_worker_found', 'no_dealer_found', 'worker_fired' ])
 
     hh_df_recipient = hh_df[hh_df['Treated'] == 1]
     hh_df_non_recipient = hh_df[hh_df['Treated'] == 0]
-    hh_df_control = hh_df[(hh_df['Treated'] == 0) & (hh_df['Saturation'] == 0)]
-
 
     fm_df_recipient = fm_df[fm_df['Treated'] == 1]
     fm_df_non_recipient = fm_df[fm_df['Treated'] == 0]
-    fm_df_control = fm_df[(fm_df['Treated'] == 0) & (fm_df['Saturation'] == 0)]
 
 
     df = {'step': self.count, 
-          'Expenditure': hh_df['Expenditure'].mean(),      
+          #'Expenditure': hh_df['Expenditure'].mean(),      
           'Expenditure_Recipient': hh_df_recipient['Expenditure'].mean(),
           'Expenditure_Nonrecipient': hh_df_non_recipient['Expenditure'].mean(),
-          'Expenditure_Control': hh_df_control['Expenditure'].mean(),
 
-          'Money': hh_df['Money'].mean(),
+          #'Money': hh_df['Money'].mean(),
           'Money_Recipient': hh_df_recipient['Money'].mean(),
           'Money_Nonrecipient': hh_df_non_recipient['Money'].mean(),
-          'Money_Control': hh_df_control['Money'].mean(), 
 
-          'Income': hh_df['Income'].mean(),
+          #'Income': hh_df['Income'].mean(),
           'Income_Recipient': hh_df_recipient['Income'].mean(),
           'Income_Nonrecipient': hh_df_non_recipient['Income'].mean(),
-          'Income_Control': hh_df_control['Income'].mean(),  
 
-          'Profit': fm_df['Profit'].mean(),      
+          #'Profit': fm_df['Profit'].mean(),      
           'Profit_Recipient': fm_df_recipient['Profit'].mean(),
           'Profit_Nonrecipient': fm_df_non_recipient['Profit'].mean(),
-          'Profit_Control': fm_df_control['Profit'].mean(), 
 
-          'Revenue': fm_df['Revenue'].mean(),
+          #'Revenue': fm_df['Revenue'].mean(),
           'Revenue_Recipient': fm_df_recipient['Revenue'].mean(),
           'Revenue_Nonrecipient': fm_df_non_recipient['Revenue'].mean(),
-          'Revenue_Control': fm_df_control['Revenue'].mean(), 
 
-          'Assets': fm_df['Assets'].mean(),
+          #'Assets': fm_df['Assets'].mean(),
           'Assets_Recipient': fm_df_recipient['Assets'].mean(),
           'Assets_Nonrecipient': fm_df_non_recipient['Assets'].mean(),
-          'Assets_Control': fm_df_control['Assets'].mean(),   
 
-          'Stock': fm_df['Stock'].mean(),
+          #'Stock': fm_df['Stock'].mean(),
           'Stock_Recipient': fm_df_recipient['Stock'].mean(),
           'Stock_Nonrecipient': fm_df_non_recipient['Stock'].mean(),
-          'Stock_Control': fm_df_control['Stock'].mean(),
 
           'Unemployment': len(hh_df[hh_df['Employer'].isna()]) / hh_df.shape[0],
           }

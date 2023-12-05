@@ -3,10 +3,13 @@ import numpy as np
 from matplotlib import pyplot as plt
 import ABM
 from read_data import create_agent_data
-from Data_Collector import Sparse_collector, Datacollector, Validation_collector
+from Datacollector import Sparse_collector, Datacollector, Validation_collector
 import arviz as az
 import pandas as pd
 import seaborn as sns
+import random
+np.random.seed(0) 
+random.seed(0)
 #@ TODO 
 # Make plots prettier:
 # - work out color concept
@@ -31,51 +34,56 @@ class Model(ABM.Sugarscepe):
     self.datacollector = Sparse_collector(self) #Validation_collector(self)#
     self.data = []
 
-def compare_line(df, y1, y2):
 
-  sns.lineplot(data=df, x='step', y=y1, label='All', color= '#5284C2')
-  sns.lineplot(data=df, x='step', y=y2, label='Treated', color= '#52C290')
+def compare_line(df_t, df_c, var):
+  sns.lineplot(data=df_c, x='step', y=var, label='Control', color= '#52C290')
+  sns.lineplot(data=df_t, x='step', y=var, label='Treated', color= '#2C72A6')
   plt.axvline(x=123, color='red', linestyle='--')
 
   # Set plot labels and title
   plt.xlabel(f'Step')
-  plt.ylabel(f"{y1}")
-  plt.title(f"Comparison {y1} vs. {y2}")
+  plt.ylabel(f"{var}")
+  plt.title(f"Comparison {var} Treatement vs. Control")
 
   # Show plot
   plt.legend()
   plt.show()
 
 
+steps = 1000
+model_c = Model()
+model_c.datacollector = Validation_collector(model_c)
+model_c.intervention_handler.control = True
+model_c.run_simulation(steps)
+df_c = model_c.datacollector.get_data()
+
+
 model = Model()
 model.datacollector = Validation_collector(model)
-model.run_simulation(1500)
-
-df = model.datacollector.get_data()
-
-variables = iter(df.columns[1:-1])
-for var in variables:
- compare_line(df, var, next(variables))
- next(variables) # skip control variable
- next(variables)
+model_c.intervention_handler.control = False
+model.run_simulation(steps)
+df_t = model.datacollector.get_data()
 
 #%%
-result_df = df[df['step'] == 192] 
+variables_t = iter(df_t.columns[1:-1])
+
+for var in variables_t:
+ compare_line(df_t, df_c, var)
+
+
+#%%
+df_t = df_t[df_t['step'] == 129] 
+df_c = df_c[df_c['step'] == 129] 
 
 converstion = 52*1.871
-
-print(f"HH expenditure {round(float(result_df['Expenditure_Recipient']-result_df['Expenditure_Control'])*converstion, 2): >13}{round(float(result_df['Expenditure_Nonrecipient'] -result_df['Expenditure_Control'])*converstion, 2) : >13}{round(float(result_df['Expenditure_Control'])*converstion,2) :>13}")
-print(f"HH assets      {round(float(result_df['Assets_Recipient']-result_df['Assets_Control']), 2): >13}{                     round(float(result_df['Assets_Nonrecipient'] - result_df['Expenditure_Control']),2 ) : >13}{                 round(float(result_df['Assets_Control']),2):>13}")
-print(f"HH income      {round(float(result_df['Income_Recipient']-result_df['Income_Control'])*converstion, 2) : >13}{        round(float(result_df['Income_Nonrecipient'] - result_df['Income_Control'] )*converstion,2): >13}{           round(float(result_df['Income_Control'])*converstion,2) :>13}")
-print(f"FM profit      {round(float(result_df['Profit_Recipient']-result_df['Profit_Control'])*converstion, 2) : >13}{        round(float(result_df['Profit_Nonrecipient'] - result_df['Profit_Control'])*converstion,2) : >13}{           round(float(result_df['Profit_Control'])*converstion,2) :>13}")
-print(f"FM revenue     {round(float(result_df['Revenue_Recipient']-result_df['Revenue_Control'])*converstion, 2): >13}{       round(float(result_df['Revenue_Nonrecipient'] - result_df['Revenue_Control'])*converstion,2): >13}{          round(float(result_df['Revenue_Control']),2) :>13}")
-print(f"FM inventory   {round(float(result_df['Stock_Recipient']-result_df['Stock_Control']), 2): >13}{                       round(float(result_df['Stock_Nonrecipient'] - result_df['Stock_Control']),2): >13}{                          round(float(result_df['Stock_Control']),2) :>13}")
+print(f"               {'Recipients': >13}{'Nonrecipinets':>13}{'Control':>13}")
+print(f"HH expenditure {round(float(df_t['Expenditure_Recipient']-df_c['Expenditure_Recipient'])*converstion, 2): >13}{round(float(df_t['Expenditure_Nonrecipient'] -df_c['Expenditure_Nonrecipient'])*converstion, 2) : >13}{round(float(df_c['Expenditure_Nonrecipient'])*converstion,2) :>13}")
+print(f"HH assets      {round(float(df_t['Assets_Recipient']-df_c['Assets_Recipient'])*1.871, 2): >13}{                     round(float(df_t['Assets_Nonrecipient'] - df_c['Expenditure_Nonrecipient'])*1.871,2 ) : >13}{     round(float(df_c['Assets_Nonrecipient'])*1.871,2):>13}")
+print(f"HH income      {round(float(df_t['Income_Recipient']-df_c['Income_Recipient'])*converstion, 2) : >13}{        round(float(df_t['Income_Nonrecipient'] - df_c['Income_Nonrecipient'] )*converstion,2): >13}{           round(float(df_c['Income_Nonrecipient'])*converstion,2) :>13}")
+print(f"FM profit      {round(float(df_t['Profit_Recipient']-df_c['Profit_Recipient'])*converstion, 2) : >13}{        round(float(df_t['Profit_Nonrecipient'] - df_c['Profit_Nonrecipient'])*converstion,2) : >13}{           round(float(df_c['Profit_Nonrecipient'])*converstion,2) :>13}")
+print(f"FM revenue     {round(float(df_t['Revenue_Recipient']-df_c['Revenue_Recipient'])*converstion, 2): >13}{       round(float(df_t['Revenue_Nonrecipient'] - df_c['Revenue_Nonrecipient'])*converstion,2): >13}{          round(float(df_c['Revenue_Nonrecipient'])*converstion,2) :>13}")
+print(f"FM inventory   {round(float(df_t['Stock_Recipient']-df_c['Stock_Recipient']), 2): >13}{                       round(float(df_t['Stock_Nonrecipient'] - df_c['Stock_Nonrecipient']),2): >13}{                          round(float(df_c['Stock_Nonrecipient']),2) :>13}")
 #%%
-diff_row = df_concat.diff().iloc[1]
-
-# Create a new DataFrame with the original rows and the calculated difference row
-result_df = pd.concat([df_concat, pd.DataFrame([diff_row], columns=df.columns)])
-print(result_df)
 
 # Questions
 # OK 1) How does intervention group look like? mostly firm owners? -> mostly employed workers with low productivity
@@ -103,7 +111,7 @@ print(result_df)
 # Insights
 # 1) In simulation most recipients are employed low productivity households. Might explain why effect on other hh is just as much 
 
-print(df['Unemployment'])
+print(df_t['Unemployment'])
 
 print(f" Treated firm: {len([agent for agent in model.treated_agents if agent.firm != None])}")
 print(f" Treaded no firm: {len([agent for agent in model.treated_agents if agent.firm == None])}")
