@@ -59,14 +59,14 @@ class Firm(mesa.Agent):
     # 1) The stock is below the minimum inventory
     # 2) Price last month was strictly smaller than the maximum price
     if self.stock < self.min_stock and current_price * (1 + self.nu) < self.max_price:
-      if np.random.uniform(0, 1) <= self.theta:
+      if random.uniform(0, 1) <= self.theta:
         current_price *= (1 + self.nu) #self.nu * (current_price - self.marginal_cost)
 
     # Price is decresed with probability theta if the follwoing conditions are met:
     # 1) The stock exceeds the maximum inventory
     # 2) Price last month was strictly larger than the marginal cost
     elif self.stock > self.max_stock: #and current_price * (1-self.nu) > self.marginal_cost:
-      if np.random.uniform(0, 1) <= self.theta:
+      if random.uniform(0, 1) <= self.theta:
         current_price -= self.nu * (current_price - self.marginal_cost)
 
     # update price
@@ -151,13 +151,6 @@ class Firm(mesa.Agent):
       self.assets += self.profit
       self.owner.income = 0
       self.owner.money += 0
-    
-    if self.assets > 300 and len(self.employees > 0):
-      payout = 0.1*(self.assets-300)/len(self.employees)
-      for employee in self.employees:
-        employee.income += payout
-        employee.money += payout
-
       
   def step(self):
     """
@@ -225,7 +218,7 @@ class Agent(mesa.Agent):
     # retrieve the list of all firms operating on the market
     potential_dealers = self.village.market.vendors
     np.random.shuffle(potential_dealers)
-
+    
     # market needs at least 5 dealers on a given day to work
     if len(potential_dealers) < 5:
       return False
@@ -240,7 +233,8 @@ class Agent(mesa.Agent):
 
       # randomly select a new dealer from the dealers not already in the list and append it at the end 
       # note: np.random.choice returns a np. array; thus the index
-      new_dealer = random.sample(list(set(potential_dealers) - set(self.best_dealers)), k=1)[0]
+      new_dealer = random.sample([dealer for dealer in potential_dealers if dealer not in self.best_dealers], k=1)[0] 
+
       if self.best_dealers[-1].price > new_dealer.price:
         self.best_dealers[-1] =  new_dealer
 
@@ -278,7 +272,6 @@ class Agent(mesa.Agent):
     self.model.datacollector.td_data.append({"step": self.model.schedule.steps, "parties": (self.unique_id, dealer.owner.unique_id), 
                                              "price": dealer.price, "amount": amount, "volume": total_price, 'market': self.village.market.unique_id,
                                              "from": self.village.unique_id, 'to': dealer.owner.village.unique_id})
-
   def step(self):
     """
     Type:        Method
@@ -358,8 +351,9 @@ class Sugarscepe(mesa.Model):
   Type:         Mesa model class
   Description:  Main simulation class
   """
-  def __init__(self, seed= 0, min_lat=-0.05 , max_lat=0.25, min_lon=34.00, max_lon=34.5, N=65383):
+  def __init__(self, min_lat=-0.05 , max_lat=0.25, min_lon=34.00, max_lon=34.5, N=65383):
     print('init was called')
+    super().__init__(seed=0)
 
     # confine the geographic space of the grid to the study area
     self.x_min = min_lat
@@ -379,6 +373,7 @@ class Sugarscepe(mesa.Model):
 
     # initialize scheduler
     self.schedule = mesa.time.RandomActivationByType(self)
+    self.random = random.Random(0)
 
     # load the dataset used to initialize the village, agent instances and store it
     self.df_hh, self.df_fm, self.df_vl, self.df_mk = create_agent_data()
@@ -396,8 +391,8 @@ class Sugarscepe(mesa.Model):
     self.all_villages = []
     for i in range(len(self.df_vl)):
       mk = random.sample(self.all_markets, k=1)[0]
-      pos = (mk.pos[0] + np.random.uniform(-0.01, 0.01), # pos is a tuple of shape (lat, lon) as used for continuous_grid in mesa
-             mk.pos[1] + np.random.uniform(-0.01, 0.01)) 
+      pos = (mk.pos[0] + random.uniform(-0.01, 0.01), # pos is a tuple of shape (lat, lon) as used for continuous_grid in mesa
+             mk.pos[1] + random.uniform(-0.01, 0.01)) 
       
       # Create village instance and add it to schedule
       vl = Village(unique_id=f"v_{i}", model=self, pos=mk.pos, county=mk.county, market=mk)
@@ -413,15 +408,14 @@ class Sugarscepe(mesa.Model):
       fm = None
 
       if np.random.random() < 0.48:
-
         # Create firm instance and add it to schedule
         fm = Firm(unique_id=f"f_{i}", model=self, market=vl.market, village=vl)
         vl.market.vendors.append(fm)
         self.all_firms.append(fm)
         self.schedule.add(fm)
 
-      pos = (vl.pos[0] + np.random.uniform(-0.0003, 0.0003), # pos is a tuple of shape (lat, lon) as used for continuous_grid in mesa
-             vl.pos[1] + np.random.uniform(-0.0003, 0.0003)) 
+      pos = (vl.pos[0] + random.uniform(-0.0003, 0.0003), # pos is a tuple of shape (lat, lon) as used for continuous_grid in mesa
+             vl.pos[1] + random.uniform(-0.0003, 0.0003)) 
       
       # Create hh instance
       hh = Agent(unique_id=f"h_{i}", model=self, pos=pos, village=vl, firm=fm, employer=None)
@@ -440,38 +434,16 @@ class Sugarscepe(mesa.Model):
       # add hh to schedule
       self.schedule.add(hh)        
 
-
-  def randomize_agents(self, agent_type):
-    """
-    Type:        Helper Method
-    Description: Used to create a ranomized list of all hh, fm, mk in the model.
-                 Required to avoid first mover advantages (see f.i. Axtell 2022 p. ?)
-    """
-    agent_name = f"all_{agent_type}"
-    agent_list = getattr(self, agent_name)
-    agent_shuffled = random.sample(agent_list, len(agent_list))
-    return agent_shuffled
-  
-
   def step(self):
     """
     Type:         Method
     Description:  Model step function. Calls all entities' step functions
     """
-    # Create randomized list of fms and exectute their step functions
-    fm_shuffle = self.randomize_agents('firms')
-    for firm in fm_shuffle:
-      firm.step() # executes 'set_price()', 'set_labor()', 'produce()', 'distribute_profit()'
+    # Execute firm step function 
+    self.schedule.step_type(Firm)
 
-    # Create randomized list of hhs and execute their step functions 
-    hh_shuffle = self.randomize_agents('agents')
-    for hh in hh_shuffle:
-        hh.step() # executes 'find_dealer()', 'trade()'
-
-    # Create ranomized list of mks and execute their step functions
-    mk_shuffle = self.randomize_agents('markets')
-    for mk in mk_shuffle:
-      mk.step() # resets costumers list to []
+    # Execute agent step function 
+    self.schedule.step_type(Agent)
 
     # Collect data for current step
     self.datacollector.collect_data()
@@ -504,9 +476,7 @@ class Sugarscepe(mesa.Model):
     return f'N Households: {len(self.all_agents)} \nN Firms: {len(self.all_firms)} \nN Villages: {len(self.all_villages)}\nN Markets: {len(self.all_markets)}'
 
 
-def run_simulation(steps = 50):
-
-  start = timeit.default_timer()
+def run_simulation(steps = 15):
 
   model = Sugarscepe()
   model.run_simulation(steps)
@@ -515,9 +485,6 @@ def run_simulation(steps = 50):
   print(md_data[['average_stock', 'unemployment_rate', 'average_income', 'average_price', 
                 'trade_volume', 'no_worker_found', 'no_dealer_found', 'worker_fired', ]].head(steps))
   
-  
-  stop = timeit.default_timer()
-  print('Time: ', stop - start)  
   return model
 
 

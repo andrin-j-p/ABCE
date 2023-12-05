@@ -38,7 +38,7 @@ class Model(ABM.Sugarscepe):
 def compare_line(df_t, df_c, var):
   sns.lineplot(data=df_c, x='step', y=var, label='Control', color= '#52C290')
   sns.lineplot(data=df_t, x='step', y=var, label='Treated', color= '#2C72A6')
-  plt.axvline(x=123, color='red', linestyle='--')
+  plt.axvline(x=52, color='red', linestyle='--')
 
   # Set plot labels and title
   plt.xlabel(f'Step')
@@ -64,7 +64,7 @@ model_c.intervention_handler.control = False
 model.run_simulation(steps)
 df_t = model.datacollector.get_data()
 
-#%%
+
 variables_t = iter(df_t.columns[1:-1])
 
 for var in variables_t:
