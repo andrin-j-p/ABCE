@@ -69,7 +69,7 @@ class Testsim(ABM.Sugarscepe):
     self.fm_dct = {firm.unique_id: firm for firm in self.all_firms}
     self.hh_dct = {hh.unique_id: hh for hh in self.all_agents}
 
-steps = 100
+steps = 1000
 model = Testsim()
 model.run_simulation(steps=steps)
 df_hh_sim, df_fm_sim, df_md_sim, df_td_sim = model.datacollector.get_data()
@@ -145,9 +145,20 @@ class TestABM(unittest.TestCase):
     def test_attributes(self):
         """
         test1: stock weakly positive
+        test2: revenue is weakly positve
+        test3: money not negative
+        test4: firm has owner
+        test5: owner is in all_agents
+        test6: test no emploee twice
         """
         for fm in model.all_firms:
             self.assertGreaterEqual(fm.stock, 0)
+            self.assertGreaterEqual(fm.money, -1)
+            self.assertGreaterEqual(fm.revenue, 0)
+            self.assertIsNotNone(fm.owner)
+            self.assertIn(fm.owner, model.all_agents)
+            self.assertIn(fm.village, model.all_villages)
+            self.assertEqual(len(fm.employees), len(set(fm.employees)))
 
     def test_set_price(self):
         """
@@ -168,7 +179,6 @@ class TestABM(unittest.TestCase):
 
     def test_set_labor(self):
         """
-        test1:
         """
         pass
             
@@ -190,12 +200,14 @@ class TestABM(unittest.TestCase):
         """
         test1: hh money weakly positive
         test2: hh income is zero or positive
-        test3: hh income same as productivity
+        test3: hh no best dealer twice
+        test4: hh income same as productivity
         """
         for hh in model.all_agents:
             self.assertGreaterEqual(hh.money, -1, f"money {hh.money}") # -1 due to floating point errors
             self.assertGreaterEqual(hh.income, 0, f"income {hh.income}")
-
+            self.assertEqual(len(hh.best_dealers), len(set(hh.best_dealers)))
+            self.assertGreaterEqual(hh.demand, 0)
             if hh.firm == None and hh.employer != None:
                 self.assertEqual(hh.income, hh.productivity, f"empyler {hh.employer} firm {hh.firm}")
 
@@ -254,8 +266,8 @@ class TestABM(unittest.TestCase):
         """
         test1: fraction treatment villages high saturation market
         test2: fraction treatment villages low saturation market
-        test2: 28 markets with high saturation
-        test3: 33 markets wiht low saturation 
+        test3: 33 markets with high saturation
+        test4: 28 markets wiht low saturation 
         """
         high_sat_count = 0
         low_sat_count =  0
