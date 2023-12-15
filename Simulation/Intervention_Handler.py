@@ -53,7 +53,7 @@ class Intervention_handler():
     if current_step >= intervention_step and current_step%7==0:
 
       # Start rollout of the token 15 days after week s after treatment assignment
-      if current_step >= intervention_step + 15 and len(self.UCT_1) > 0:
+      if current_step >= intervention_step and len(self.UCT_1) > 0:
 
         # Get batch of agents receiving the token in the current week
         agents = self.UCT_1.pop(0)
@@ -63,7 +63,7 @@ class Intervention_handler():
         self.intervention(80, agents) 
 
       # Start first UCT rollout at step 860 (2 months after token)
-      if current_step >= intervention_step + 75 and len(self.UCT_2) > 0:
+      if current_step >= intervention_step + 60 and len(self.UCT_2) > 0:
 
         # Get the batch of agents to receiving UCT 1 in the current week
         agents = self.UCT_2.pop(0)

@@ -34,7 +34,7 @@ class Model(ABM.Sugarscepe):
     self.datacollector = Sparse_collector(self) #Validation_collector(self)#
     self.data = []
 
-
+#%%
 def compare_line(df_t, df_c, var):
   sns.lineplot(data=df_c, x='step', y=var, label='Control', color= '#52C290')
   sns.lineplot(data=df_t, x='step', y=var, label='Treated', color= '#2C72A6')
@@ -57,6 +57,8 @@ model_c.intervention_handler.control = True
 model_c.run_simulation(steps)
 df_c = model_c.datacollector.get_data()
 
+np.random.seed(0) 
+random.seed(0)
 
 model = Model()
 model.datacollector = Validation_collector(model)
@@ -71,20 +73,44 @@ for var in variables_t:
  compare_line(df_t, df_c, var)
 
 
-#%%
-df_t = df_t[df_t['step'] == 129] 
-df_c = df_c[df_c['step'] == 129] 
+
+df_t = df_t[df_t['step'] == 142] 
+df_c = df_c[df_c['step'] == 142] 
 
 converstion = 52*1.871
 print(f"               {'Recipients': >13}{'Nonrecipinets':>13}{'Control':>13}")
-print(f"HH expenditure {round(float(df_t['Expenditure_Recipient']-df_c['Expenditure_Recipient'])*converstion, 2): >13}{round(float(df_t['Expenditure_Nonrecipient'] -df_c['Expenditure_Nonrecipient'])*converstion, 2) : >13}{round(float(df_c['Expenditure_Nonrecipient'])*converstion,2) :>13}")
-print(f"HH assets      {round(float(df_t['Assets_Recipient']-df_c['Assets_Recipient'])*1.871, 2): >13}{                     round(float(df_t['Assets_Nonrecipient'] - df_c['Expenditure_Nonrecipient'])*1.871,2 ) : >13}{     round(float(df_c['Assets_Nonrecipient'])*1.871,2):>13}")
+print(f"HH expenditure {round(float(df_t['Expenditure_Recipient']-df_c['Expenditure_Recipient'])*converstion, 2): >13}{round(float(df_t['Expenditure_Nonrecipient'] - df_c['Expenditure_Nonrecipient'])*converstion, 2) : >13}{round(float(df_c['Expenditure_Nonrecipient'])*converstion,2) :>13}")
+print(f"HH money      {round(float(df_t['Money_Recipient']-df_c['Money_Recipient'])*1.871, 2): >13}{                     round(float(df_t['Money_Nonrecipient'] - df_c['Money_Nonrecipient'])*1.871,2 ) : >13}{     round(float(df_c['Assets_Nonrecipient'])*1.871,2):>13}")
 print(f"HH income      {round(float(df_t['Income_Recipient']-df_c['Income_Recipient'])*converstion, 2) : >13}{        round(float(df_t['Income_Nonrecipient'] - df_c['Income_Nonrecipient'] )*converstion,2): >13}{           round(float(df_c['Income_Nonrecipient'])*converstion,2) :>13}")
 print(f"FM profit      {round(float(df_t['Profit_Recipient']-df_c['Profit_Recipient'])*converstion, 2) : >13}{        round(float(df_t['Profit_Nonrecipient'] - df_c['Profit_Nonrecipient'])*converstion,2) : >13}{           round(float(df_c['Profit_Nonrecipient'])*converstion,2) :>13}")
+
+print(f"FM assets      {round(float(df_t['Assets_Recipient']-df_c['Assets_Recipient'])*1.871, 2): >13}{                     round(float(df_t['Assets_Nonrecipient'] - df_c['Expenditure_Nonrecipient'])*1.871,2 ) : >13}{     round(float(df_c['Assets_Nonrecipient'])*1.871,2):>13}")
 print(f"FM revenue     {round(float(df_t['Revenue_Recipient']-df_c['Revenue_Recipient'])*converstion, 2): >13}{       round(float(df_t['Revenue_Nonrecipient'] - df_c['Revenue_Nonrecipient'])*converstion,2): >13}{          round(float(df_c['Revenue_Nonrecipient'])*converstion,2) :>13}")
 print(f"FM inventory   {round(float(df_t['Stock_Recipient']-df_c['Stock_Recipient']), 2): >13}{                       round(float(df_t['Stock_Nonrecipient'] - df_c['Stock_Nonrecipient']),2): >13}{                          round(float(df_c['Stock_Nonrecipient']),2) :>13}")
-#%%
 
+print(f"Expenditure Recipient: {converstion* np.mean([hh.demand for hh in model.all_agents if hh.treated == 1])}")
+print(f"Expenditure Non recipient: {converstion* np.mean([hh.demand for hh in model.all_agents if hh.treated == 0])}")
+
+print(f"Expenditure Firm: {converstion* np.mean([hh.demand for hh in model.all_agents if hh.firm != None])}")
+print(f"Expenditure No Firm: {converstion* np.mean([hh.demand for hh in model.all_agents if hh.firm == None])}")
+print(df_t['Unemployment'])
+print(df_c['Unemployment'])
+#%%
+steps = 350
+model = Model()
+model.datacollector = Sparse_collector(model)
+model.run_simulation(steps)
+
+print(f"Money_1 all hh {np.mean([hh.money for hh in model.all_agents])}")
+print(f"Money_1 firm {np.mean([hh.money for hh in model.all_agents if hh.firm != None])}")
+print(f"Money_1 no firm {np.mean([hh.money for hh in model.all_agents if hh.firm == None])}")
+
+model.run_simulation(650)
+print(f"Money_2 all hh {np.mean([hh.money for hh in model.all_agents])}")
+print(f"Money_2 firm {np.mean([hh.money for hh in model.all_agents if hh.firm != None])}")
+print(f"Money_2 no firm {np.mean([hh.money for hh in model.all_agents if hh.firm == None])}")
+
+#%%
 # Questions
 # OK 1) How does intervention group look like? mostly firm owners? -> mostly employed workers with low productivity
 # 2) Why dip in treated after token
