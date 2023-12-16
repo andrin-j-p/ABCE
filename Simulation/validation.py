@@ -34,7 +34,6 @@ class Model(ABM.Sugarscepe):
     self.datacollector = Sparse_collector(self) #Validation_collector(self)#
     self.data = []
 
-#%%
 def compare_line(df_t, df_c, var):
   sns.lineplot(data=df_c, x='step', y=var, label='Control', color= '#52C290')
   sns.lineplot(data=df_t, x='step', y=var, label='Treated', color= '#2C72A6')
@@ -55,27 +54,26 @@ model_c = Model()
 model_c.datacollector = Validation_collector(model_c)
 model_c.intervention_handler.control = True
 model_c.run_simulation(steps)
-df_c = model_c.datacollector.get_data()
+df_c_1 = model_c.datacollector.get_data()
 
 np.random.seed(0) 
 random.seed(0)
 
 model = Model()
 model.datacollector = Validation_collector(model)
-model_c.intervention_handler.control = False
+model.intervention_handler.control = False
 model.run_simulation(steps)
-df_t = model.datacollector.get_data()
+df_t_1 = model.datacollector.get_data()
 
 
-variables_t = iter(df_t.columns[1:-1])
+variables_t = iter(df_t_1.columns[1:-1])
 
 for var in variables_t:
- compare_line(df_t, df_c, var)
+ compare_line(df_t_1, df_c_1, var)
 
 
-
-df_t = df_t[df_t['step'] == 142] 
-df_c = df_c[df_c['step'] == 142] 
+df_t = df_t_1[df_t_1['step'] == 142] 
+df_c = df_c_1[df_c_1['step'] == 142] 
 
 converstion = 52*1.871
 print(f"               {'Recipients': >13}{'Nonrecipinets':>13}{'Control':>13}")
@@ -93,8 +91,35 @@ print(f"Expenditure Non recipient: {converstion* np.mean([hh.demand for hh in mo
 
 print(f"Expenditure Firm: {converstion* np.mean([hh.demand for hh in model.all_agents if hh.firm != None])}")
 print(f"Expenditure No Firm: {converstion* np.mean([hh.demand for hh in model.all_agents if hh.firm == None])}")
-print(df_t['Unemployment'])
-print(df_c['Unemployment'])
+print(f"Unemployment T: {df_t['Unemployment']}")
+print(f"Unemployment C: {df_c['Unemployment']}")
+print(F"Price T: {np.mean([fm.price for fm in model.all_firms])}")
+print(F"Price C: {np.mean([fm.price for fm in model_c.all_firms])}")
+#%%
+richest_person = max(model.all_agents, key=lambda x: x.money)
+print(richest_person.unique_id)
+#%%
+
+def compare_dist(p1, p2, title, lim):
+  az.style.use("arviz-doc")
+
+  fig, ax = plt.subplots()
+  az.plot_dist(p1, ax=ax, label="Treated", rug = True, rug_kwargs={'space':0.1}, fill_kwargs={'alpha': 0.7})
+  az.plot_dist(p2, ax=ax, label="Control", color='red', rug=True,  rug_kwargs={'space':0.2}, fill_kwargs={'alpha': 0.7})
+  # Add labels, title, legend, etc.
+  ax.set_ylabel("Density")
+  ax.set_xlabel("Value")
+  ax.set_title(f"Kernel Density Comparision True and Simulated {title}")
+  ax.legend()
+
+  # Show the plot
+  plt.xlim(lim[0], lim[1])
+  plt.show()
+
+print(df_t_1['Expenditure_Recipient'].values)
+compare_dist(df_t_1['Expenditure_Recipient'].values, df_c_1['Expenditure_Recipient'], 'Expenditure_Recipient', (0, 100) )
+compare_dist(df_t_1['Expenditure_Nonrecipient'].values, df_c_1['Expenditure_Nonrecipient'], 'Expenditure_Nonrecipient', (0, 100) )
+
 #%%
 steps = 350
 model = Model()
@@ -110,7 +135,7 @@ print(f"Money_2 all hh {np.mean([hh.money for hh in model.all_agents])}")
 print(f"Money_2 firm {np.mean([hh.money for hh in model.all_agents if hh.firm != None])}")
 print(f"Money_2 no firm {np.mean([hh.money for hh in model.all_agents if hh.firm == None])}")
 
-#%%
+#%%%
 # Questions
 # OK 1) How does intervention group look like? mostly firm owners? -> mostly employed workers with low productivity
 # 2) Why dip in treated after token
