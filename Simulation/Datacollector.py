@@ -1,6 +1,11 @@
 import pandas as pd
 import numpy as np
 
+def handle_none(agent):
+  if agent != None:
+    return agent.unique_id
+  return None
+
 class Datacollector():
   """
   Type:        Helper Class 
@@ -26,8 +31,8 @@ class Datacollector():
     # collect hh and firm data for the current step
     step = self.model.schedule.steps
 
-    agent_data = [(step, agent.unique_id, agent.village.unique_id, agent.pos[0], agent.pos[1], agent.income, agent.best_dealers,
-                   agent.money, agent.demand, agent.employer, agent.firm)
+    agent_data = [(step, agent.unique_id, agent.village.unique_id, agent.pos[0], agent.pos[1], agent.income,[dealer.unique_id for dealer in agent.best_dealers],
+                   agent.money, agent.demand, handle_none(agent.employer), handle_none(agent.firm))
                   for agent in self.model.all_agents]
     
     firm_data = [(step, firm.unique_id, firm.stock, firm.price, firm.money, firm.output, firm.sales, firm.price * firm.sales,

@@ -81,7 +81,6 @@ print(f"HH expenditure {round(float(df_t['Expenditure_Recipient']-df_c['Expendit
 print(f"HH money      {round(float(df_t['Money_Recipient']-df_c['Money_Recipient'])*1.871, 2): >13}{                     round(float(df_t['Money_Nonrecipient'] - df_c['Money_Nonrecipient'])*1.871,2 ) : >13}{     round(float(df_c['Assets_Nonrecipient'])*1.871,2):>13}")
 print(f"HH income      {round(float(df_t['Income_Recipient']-df_c['Income_Recipient'])*converstion, 2) : >13}{        round(float(df_t['Income_Nonrecipient'] - df_c['Income_Nonrecipient'] )*converstion,2): >13}{           round(float(df_c['Income_Nonrecipient'])*converstion,2) :>13}")
 print(f"FM profit      {round(float(df_t['Profit_Recipient']-df_c['Profit_Recipient'])*converstion, 2) : >13}{        round(float(df_t['Profit_Nonrecipient'] - df_c['Profit_Nonrecipient'])*converstion,2) : >13}{           round(float(df_c['Profit_Nonrecipient'])*converstion,2) :>13}")
-
 print(f"FM assets      {round(float(df_t['Assets_Recipient']-df_c['Assets_Recipient'])*1.871, 2): >13}{                     round(float(df_t['Assets_Nonrecipient'] - df_c['Expenditure_Nonrecipient'])*1.871,2 ) : >13}{     round(float(df_c['Assets_Nonrecipient'])*1.871,2):>13}")
 print(f"FM revenue     {round(float(df_t['Revenue_Recipient']-df_c['Revenue_Recipient'])*converstion, 2): >13}{       round(float(df_t['Revenue_Nonrecipient'] - df_c['Revenue_Nonrecipient'])*converstion,2): >13}{          round(float(df_c['Revenue_Nonrecipient'])*converstion,2) :>13}")
 print(f"FM inventory   {round(float(df_t['Stock_Recipient']-df_c['Stock_Recipient']), 2): >13}{                       round(float(df_t['Stock_Nonrecipient'] - df_c['Stock_Nonrecipient']),2): >13}{                          round(float(df_c['Stock_Nonrecipient']),2) :>13}")
@@ -95,9 +94,15 @@ print(f"Unemployment T: {df_t['Unemployment']}")
 print(f"Unemployment C: {df_c['Unemployment']}")
 print(F"Price T: {np.mean([fm.price for fm in model.all_firms])}")
 print(F"Price C: {np.mean([fm.price for fm in model_c.all_firms])}")
-#%%
-richest_person = max(model.all_agents, key=lambda x: x.money)
-print(richest_person.unique_id)
+
+print(F"Productivity R: {np.mean([hh.productivity for hh in model.all_agents if hh.treated == 1])}")
+print(F"Productivity NR: {np.mean([hh.productivity for hh in model.all_agents if hh.treated == 0])}")
+
+print(F"Firm R: {np.mean([1 if hh.treated == 1 and hh.firm!= None else 0 for hh in model.all_agents ])}")
+print(F"Firm NR: {np.mean([1 if hh.treated == 0 and hh.firm!= None else 0 for hh in model.all_agents ])}")
+
+
+
 #%%
 
 def compare_dist(p1, p2, title, lim):

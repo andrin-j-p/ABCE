@@ -113,7 +113,7 @@ def plot_dist(data, title):
   # Show the plot
   plt.show()
 
-data = (np.random.lognormal(3, 0.7, size=1000) + 1) 
+data = (np.random.lognormal(3.4, 0.7, size=1000) + 1) 
 plot_dist(data, 'test')
 # %%
 list1 = [1,2,3]

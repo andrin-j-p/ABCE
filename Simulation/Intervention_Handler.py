@@ -62,7 +62,7 @@ class Intervention_handler():
         # distribute the token (USD 150 PPP)
         self.intervention(80, agents) 
 
-      # Start first UCT rollout at step 860 (2 months after token)
+      # Start first UCT rollout 2 months after token
       if current_step >= intervention_step + 60 and len(self.UCT_2) > 0:
 
         # Get the batch of agents to receiving UCT 1 in the current week
@@ -72,7 +72,7 @@ class Intervention_handler():
         # distribute first handout (USD 860 PPP)
         self.intervention(460, agents)
         
-      # Start second UCT rollout at step 1100  (8 months after token)
+      # Start second UCT rollout 8 months after token
       if current_step >= intervention_step + 240 and len(self.UCT_3) > 0:
 
         # Get the batch of agents to receiving UCT 2 in the current week
@@ -113,7 +113,7 @@ class Intervention_handler():
 
     # for each village identify the 30 poorest households
     for vl in treatment_villages:
-      sorted_population = sorted(vl.population, key=lambda x: x.money)
+      sorted_population = sorted(vl.population, key=lambda x: x.income)
       eligible_hh = sorted_population[:33]
       self.treated_agents.extend(eligible_hh)
     

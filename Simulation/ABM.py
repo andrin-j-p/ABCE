@@ -139,6 +139,18 @@ class Firm(mesa.Agent):
       self.owner.income = (1 - reserves) * self.profit
       self.owner.money += (1 - reserves) * self.profit
 
+      #nr_emp = len(self.employees)
+      #factor = 0.5 if nr_emp > 0 else 1
+      #payout = factor*(1- reserves)*self.profit
+
+      #self.owner.income = payout
+      #self.owner.money += payout
+
+      #for emp in self.employees:
+      #  emp.money += payout/nr_emp
+      #  emp.income+= payout/nr_emp
+
+
     elif self.profit <= 0 and self.assets + self.profit >= 0:
       self.assets += self.profit
 
@@ -485,6 +497,7 @@ def run_simulation(steps = 50):
   print(md_data[['average_stock', 'unemployment_rate', 'average_income', 'average_price', 
                 'trade_volume', 'no_worker_found', 'no_dealer_found', 'worker_fired', ]].head(steps))
   
+    
   return model
 
 
