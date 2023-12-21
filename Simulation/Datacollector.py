@@ -58,7 +58,6 @@ class Datacollector():
     self.fm_data.append(df_fm_new)
     self.md_data.append(df_md_new)
 
-  # @TODO specify which frames to 
   def get_data(self):
     """
     Type:        Datacollector Method

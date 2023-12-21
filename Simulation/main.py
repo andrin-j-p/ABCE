@@ -29,7 +29,7 @@ def compare_line(df_F, df_E, var):
   plt.legend()
   plt.show()
 
-steps = 400
+steps = 1000
 model = Sugarscepe()
 model.intervention_handler.control = True
 model.run_simulation(steps)
@@ -40,7 +40,8 @@ df_F = hh_data[hh_data['owns_firm'].notna()]
 df_E = hh_data[hh_data['owns_firm'].isna()]
 
 for var in ['income', 'money', 'demand']:
-   compare_line(df_F, df_E, var)
+   #compare_line(df_F, df_E, var)
+   print('')
 
 
 print(F"Firm expend: {np.mean([hh.demand for hh in model.all_agents if hh.firm != None])}")
@@ -52,9 +53,7 @@ print(F"Empl money: {np.mean([hh.money for hh in model.all_agents if hh.firm == 
 print(F"Firm income: {np.mean([hh.income for hh in model.all_agents if hh.firm != None])}")
 print(F"Empl income: {np.mean([hh.income for hh in model.all_agents if hh.firm == None])}")
 
-#%%
 
-#%%
 # Pickle the DataFrame
 with open('../data/output_data/model_output.pkl', 'wb') as file:
     pickle.dump((hh_data, fm_data, md_data), file)
@@ -188,7 +187,7 @@ def batch_runner(hh_attr):
   print(F"Firm NR: {np.mean([1 if hh.treated == 0 and hh.firm!= None else 0 for hh in model.all_agents ])}")
 
 
-hh_attrs = [{'alpha': 0.78}, {'alpha': 0.79}, {'alpha': 0.8},] 
+hh_attrs = [{'alpha': 0.782}, {'alpha': 0.785}, {'alpha': 0.789},] 
 
 for hh_attr in  hh_attrs:
   batch_runner(hh_attr=hh_attr)

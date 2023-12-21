@@ -72,8 +72,8 @@ for var in variables_t:
  compare_line(df_t_1, df_c_1, var)
 
 
-df_t = df_t_1[df_t_1['step'] == 142] 
-df_c = df_c_1[df_c_1['step'] == 142] 
+df_t = df_t_1[df_t_1['step'] == 141] 
+df_c = df_c_1[df_c_1['step'] == 141] 
 
 converstion = 52*1.871
 print(f"               {'Recipients': >13}{'Nonrecipinets':>13}{'Control':>13}")
@@ -102,7 +102,8 @@ print(F"Firm R: {np.mean([1 if hh.treated == 1 and hh.firm!= None else 0 for hh 
 print(F"Firm NR: {np.mean([1 if hh.treated == 0 and hh.firm!= None else 0 for hh in model.all_agents ])}")
 
 
-
+#%%
+print(df_t_1)
 #%%
 
 def compare_dist(p1, p2, title, lim):

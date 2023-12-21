@@ -136,19 +136,20 @@ class Firm(mesa.Agent):
     if self.profit >= 0:
       reserves = 0.1 if self.assets >= 0 else 0.9
       self.assets += reserves * self.profit
-      self.owner.income = (1 - reserves) * self.profit
-      self.owner.money += (1 - reserves) * self.profit
+      #self.owner.income = (1 - reserves) * self.profit
+      #self.owner.money += (1 - reserves) * self.profit
 
-      #nr_emp = len(self.employees)
-      #factor = 0.5 if nr_emp > 0 else 1
-      #payout = factor*(1- reserves)*self.profit
+      nr_emp = len(self.employees)
+      factor = 0.4 if nr_emp > 0 else 1
+      payout = factor*(1- reserves)*self.profit
+      payout_emp = (1-factor) * (1- reserves)*self.profit
 
-      #self.owner.income = payout
-      #self.owner.money += payout
+      self.owner.income = payout
+      self.owner.money += payout
 
-      #for emp in self.employees:
-      #  emp.money += payout/nr_emp
-      #  emp.income+= payout/nr_emp
+      for emp in self.employees:
+        emp.money += payout_emp/nr_emp
+        emp.income+= payout_emp/nr_emp
 
 
     elif self.profit <= 0 and self.assets + self.profit >= 0:
@@ -211,7 +212,7 @@ class Agent(mesa.Agent):
     self.firm = firm 
     self.employer = employer
     self.best_dealers = []
-    self.productivity = float(np.random.lognormal(self.mu, self.sigma, size=1) + 1)
+    self.productivity =  float(np.random.lognormal(self.mu, self.sigma, size=1) + 1)
 
     # initialize treatment status
     self.treated = 0

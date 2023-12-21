@@ -114,7 +114,7 @@ class Intervention_handler():
     # for each village identify the 30 poorest households
     for vl in treatment_villages:
       sorted_population = sorted(vl.population, key=lambda x: x.income)
-      eligible_hh = sorted_population[:33]
+      eligible_hh = sorted_population[:34]
       self.treated_agents.extend(eligible_hh)
     
     # assign treatment status to the selected agents
