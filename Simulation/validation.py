@@ -81,6 +81,46 @@ df_t = df_sm_t[df_sm_t['step'] == 142]
 df_c = df_sm_c[df_sm_c['step'] == 142] 
 
 #%%
+from linearmodels import PanelOLS
+
+def calculate_ATE(df_c, df_t, var):
+  # Calculate the treatment effect (difference in means)
+  treatment_effect = df_t[var] - df_c[var]
+  treatment_effect = np.array(treatment_effect)
+    
+  # Calculate the ATE (Average Treatment Effect)
+  ATE = treatment_effect.mean()
+  
+  grouped = df.groupby(cluster_var)
+  
+  # Step 2: Compute group-wise means and variances
+  means = grouped[var].mean()
+  variances = grouped[var].var()
+  
+  # Step 3: Combine variances to compute clustered standard errors
+  # Compute the cluster-robust variance estimator
+  cluster_variance = variances.mean()
+  
+  # Compute clustered standard errors
+  clustered_SE = np.sqrt(cluster_variance)
+  
+  return clustered_SE
+
+  # Get summary of results
+  print(result)
+  return ATE
+
+hh_df_recipient_t = df_hh_t[df_hh_t['Treated'] == 1]
+hh_df_non_recipient_t = df_hh_t[df_hh_t['Treated'] == 0]                              
+fm_df_recipient_t = df_fm_t[df_fm_t['Treated'] == 1]
+fm_df_non_recipient_t = df_fm_t[df_fm_t['Treated'] == 0]
+
+hh_df_recipient_c = df_hh_c[df_hh_c['Treated'] == 1]
+hh_df_non_recipient_c = df_hh_c[df_hh_c['Treated'] == 0]                               
+fm_df_recipient_c = df_fm_c[df_fm_c['Treated'] == 1]
+fm_df_non_recipient_c = df_fm_c[df_fm_c['Treated'] == 0]
+
+#%%
 converstion = 52*1.871
 
 print(f"               {'Recipients': >13}{'Nonrecipinets':>13}{'Control':>13}")
@@ -107,44 +147,6 @@ print(F"Productivity NR: {np.mean([hh.productivity for hh in model.all_agents if
 
 print(F"Firm R: {np.mean([1 if hh.treated == 1 and hh.firm!= None else 0 for hh in model.all_agents ])}")
 print(F"Firm NR: {np.mean([1 if hh.treated == 0 and hh.firm!= None else 0 for hh in model.all_agents ])}")
-
-
-#%%
-from linearmodels import PanelOLS
-
-def calculate_ATE(df_c, df_t, var):
-  # Calculate the treatment effect (difference in means)
-  treatment_effect = df_t[var] - df_c[var]
-  treatment_effect = np.array(treatment_effect)
-    
-  # Calculate the ATE (Average Treatment Effect)
-  ATE = treatment_effect.mean()
-  
-  grouped = df.groupby(cluster_var)
-  
-  # Step 2: Compute group-wise means and variances
-  means = grouped[var].mean()
-  variances = grouped[var].var()
-  
-  # Step 3: Combine variances to compute clustered standard errors
-  # Compute the cluster-robust variance estimator
-  cluster_variance = variances.mean()
-  
-  # Compute clustered standard errors
-  clustered_SE = np.sqrt(cluster_variance)
-  
-  return clustered_SE
-
-
-hh_df_recipient_t = df_hh_t[df_hh_t['Treated'] == 1]
-hh_df_non_recipient_t = df_hh_t[df_hh_t['Treated'] == 0]                              
-fm_df_recipient_t = df_fm_t[df_fm_t['Treated'] == 1]
-fm_df_non_recipient_t = df_fm_t[df_fm_t['Treated'] == 0]
-
-hh_df_recipient_c = df_hh_c[df_hh_c['Treated'] == 1]
-hh_df_non_recipient_c = df_hh_c[df_hh_c['Treated'] == 0]                               
-fm_df_recipient_c = df_fm_c[df_fm_c['Treated'] == 1]
-fm_df_non_recipient_c = df_fm_c[df_fm_c['Treated'] == 0]
 
 
 #%%
