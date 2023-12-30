@@ -187,7 +187,7 @@ def batch_runner(hh_attr):
   print(F"Firm NR: {np.mean([1 if hh.treated == 0 and hh.firm!= None else 0 for hh in model.all_agents ])}")
 
 
-hh_attrs = [{'alpha': 0.782}, {'alpha': 0.785}, {'alpha': 0.789},] 
+hh_attrs = [{'money': 80}, {'money': 90}, {'money': 100},] 
 
 for hh_attr in  hh_attrs:
   batch_runner(hh_attr=hh_attr)

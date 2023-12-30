@@ -21,9 +21,6 @@ create_geojson(exectute=False)
 file_name = read_dataframe("filtered_ken.json", retval="file")
 polygons = json.load(open(file_name, "r"))
 
-# Instantiate the model
-model = ABM.Sugarscepe()
-
 # define app layout see https://www.youtube.com/watch?v=hSPmj7mK6ng&t=1187s
 app.layout = html.Div([
     # Title
@@ -86,13 +83,9 @@ def update_graph(option_slctd):
     # Open the pickled file and load the DataFrame
     with open('../data/output_data/model_output.pkl', 'rb') as file:
       df_hh, df_fm, df_md = pickle.load(file)
-    # Create copies of the dataframes
-    dff_hh, dff_fm, dff_md = df_hh[:], df_fm[:], df_md[:]
-
-    mapbox_data= dff_hh[dff_hh['step'] % 10 == 0]
 
     # creates the scatter map and superimposes the county borders where the experiment took place
-    fig1 = px.scatter_mapbox(mapbox_data, lat="lat", lon="lon", color="money", size="income", animation_frame="step", animation_group="unique_id", 
+    fig1 = px.scatter_mapbox(df_hh, lat="lat", lon="lon", color="money", size="income", animation_frame="step", animation_group="unique_id", 
                              custom_data=[], color_continuous_scale=px.colors.cyclical.IceFire, height=1000, size_max=20, 
                              hover_data=['village_id', 'income'])
     fig1.update_traces(marker=dict(size=15))
@@ -132,7 +125,7 @@ def update_graph(option_slctd):
     x = [i for i in range(option_slctd)]
 
     # Get average daily price
-    y = dff_md['average_price']
+    y = df_md['average_price']
 
     # Create figure object
     fig3 = go.Figure()
@@ -144,7 +137,7 @@ def update_graph(option_slctd):
                        yaxis=dict(showgrid=False, zeroline=True, showticklabels=True))
     
     # get average inventory
-    y = dff_md['average_stock']
+    y = df_md['average_stock']
 
     # create figure object
     fig4 = go.Figure()
@@ -156,7 +149,7 @@ def update_graph(option_slctd):
                        yaxis=dict(showgrid=False, zeroline=True, showticklabels=True))
 
     # get average employment
-    y = dff_md['average_employees']
+    y = df_md['average_employees']
     
     fig5 = go.Figure()
     fig5.add_trace(go.Scatter(x=x, y=y,mode='markers'))
@@ -167,7 +160,7 @@ def update_graph(option_slctd):
                        yaxis=dict(showgrid=False, zeroline=True, showticklabels=True))
     
     # get sales 
-    y = dff_md['trade_volume']
+    y = df_md['trade_volume']
     
     fig6 = go.Figure()
     fig6.add_trace(go.Scatter(x=x, y=y,mode='markers'))
@@ -178,7 +171,7 @@ def update_graph(option_slctd):
                        yaxis=dict(showgrid=False, zeroline=True, showticklabels=True))
 
     # get sales 
-    y = dff_md['average_income']
+    y = df_md['average_income']
     
     fig7 = go.Figure()
     fig7.add_trace(go.Scatter(x=x, y=y,mode='markers'))

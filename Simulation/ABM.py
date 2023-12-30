@@ -23,7 +23,7 @@ class Firm(mesa.Agent):
     self.owner = None
     self.market = market
     self.village = village
-    self.productivity = 1.03
+    self.productivity = 1.15
     # price
     self.price = np.random.uniform(1, 10) # price in current month (initialized randomly)
     self.marginal_cost = 1# labor is payed its productivity 
@@ -140,12 +140,12 @@ class Firm(mesa.Agent):
       #self.owner.money += (1 - reserves) * self.profit
 
       nr_emp = len(self.employees)
-      factor = 0.4 if nr_emp > 0 else 1
-      payout = factor*(1- reserves)*self.profit
+      factor = 0.5 if nr_emp > 0 else 1
+      payout_own = factor*(1- reserves)*self.profit
       payout_emp = (1-factor) * (1- reserves)*self.profit
 
-      self.owner.income = payout
-      self.owner.money += payout
+      self.owner.income = payout_own
+      self.owner.money += payout_own
 
       for emp in self.employees:
         emp.money += payout_emp/nr_emp
@@ -155,10 +155,10 @@ class Firm(mesa.Agent):
     elif self.profit <= 0 and self.assets + self.profit >= 0:
       self.assets += self.profit
 
-      payout = 0.2 * self.assets
-      self.owner.income = payout
-      self.owner.money += payout
-      self.assets -= payout
+      payout_own = 0.2 * self.assets
+      self.owner.income = payout_own
+      self.owner.money += payout_own
+      self.assets -= payout_own
     
     else:
       self.assets += self.profit
@@ -200,7 +200,7 @@ class Agent(mesa.Agent):
     # parameters to be calibrated
     self.alpha = 0.78 # propensity to consume
     self.mu = 3
-    self.sigma = 0.7
+    self.sigma = 0.9
 
     # initialize geo-related characteristics
     self.village = village
@@ -212,7 +212,7 @@ class Agent(mesa.Agent):
     self.firm = firm 
     self.employer = employer
     self.best_dealers = []
-    self.productivity =  float(np.random.lognormal(self.mu, self.sigma, size=1) + 1)
+    self.productivity = 0.6* float(np.random.lognormal(self.mu, self.sigma, size=1) + 1)
 
     # initialize treatment status
     self.treated = 0
@@ -220,7 +220,7 @@ class Agent(mesa.Agent):
     # initialize consumption related characteristics
     self.market_day = np.random.randint(0, 7) # day the agent goes to market. Note: bounds are included
     self.best_dealer_price = 10 # agent remembers price of best dealer last week
-    self.money = 100 # household liquidity
+    self.money = 80 # household liquidity
     self.demand = 0 
 
   def find_dealer(self):

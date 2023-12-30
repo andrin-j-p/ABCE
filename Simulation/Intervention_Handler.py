@@ -91,7 +91,7 @@ class Intervention_handler():
 ### Level 1 randomization
 
     # assign high saturation status to 30 random markets (without replacment)
-    high_sat_mk = random.sample(self.model.all_markets, k=33)
+    high_sat_mk = random.sample(self.model.all_markets, k=34)
     for mk in high_sat_mk:
       setattr(mk, 'saturation', 1)
 
@@ -113,8 +113,8 @@ class Intervention_handler():
 
     # for each village identify the 30 poorest households
     for vl in treatment_villages:
-      sorted_population = sorted(vl.population, key=lambda x: x.income)
-      eligible_hh = sorted_population[:34]
+      sorted_population = sorted(vl.population, key=lambda x: x.income )
+      eligible_hh = sorted_population[:33]
       self.treated_agents.extend(eligible_hh)
     
     # assign treatment status to the selected agents
