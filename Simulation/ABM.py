@@ -23,7 +23,7 @@ class Firm(mesa.Agent):
     self.owner = None
     self.market = market
     self.village = village
-    self.productivity = 1.15
+    self.productivity = 1.13
     # price
     self.price = np.random.uniform(1, 10) # price in current month (initialized randomly)
     self.marginal_cost = 1# labor is payed its productivity 
@@ -199,8 +199,8 @@ class Agent(mesa.Agent):
     super().__init__(unique_id, model)
     # parameters to be calibrated
     self.alpha = 0.78 # propensity to consume
-    self.mu = 3
-    self.sigma = 0.9
+    self.mu = 3.2
+    self.sigma = 0.7
 
     # initialize geo-related characteristics
     self.village = village

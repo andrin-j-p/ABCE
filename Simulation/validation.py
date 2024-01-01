@@ -74,13 +74,40 @@ def create_lineplots(df_t, df_c, variables):
 variables = df_sm_t.columns[1:]
 create_lineplots(df_sm_t, df_sm_c, variables)
 
-data = df_sm_c[df_sm_c['step'] == 52] 
-
-
 df_t = df_sm_t[df_sm_t['step'] == 142] 
 df_c = df_sm_c[df_sm_c['step'] == 142] 
 
+
+converstion = 52*1.871
+
+print(f"               {'Recipients': >13}{'Nonrecipinets':>13}{'Control':>13}")
+print(f"HH expenditure {round(float(df_t['Expenditure_Recipient']-df_c['Expenditure_Recipient'])*converstion, 2): >13}{round(float(df_t['Expenditure_Nonrecipient'] - df_c['Expenditure_Nonrecipient'])*converstion, 2) : >13}{round(float(df_c['Expenditure'])*converstion,2) :>13}")
+print(f"HH money       {round(float(df_t['Money_Recipient']-df_c['Money_Recipient'])*1.871, 2): >13}{                   round(float(df_t['Money_Nonrecipient'] - df_c['Money_Nonrecipient'])*1.871, 2 ) : >13}{                round(float(df_c['Money'])*1.871,2):>13}")
+print(f"HH income      {round(float(df_t['Income_Recipient']-df_c['Income_Recipient'])*converstion, 2) : >13}{         round(float(df_t['Income_Nonrecipient'] - df_c['Income_Nonrecipient'] )*converstion,2): >13}{           round(float(df_c['Income'])*converstion,2) :>13}")
+print(f"FM profit      {round(float(df_t['Profit_Recipient']-df_c['Profit_Recipient'])*converstion, 2) : >13}{         round(float(df_t['Profit_Nonrecipient'] - df_c['Profit_Nonrecipient'])*converstion,2) : >13}{           round(float(df_c['Profit'])*converstion,2) :>13}")
+print(f"FM assets      {round(float(df_t['Assets_Recipient']-df_c['Assets_Recipient'])*1.871, 2): >13}{                round(float(df_t['Assets_Nonrecipient'] - df_c['Assets_Nonrecipient'])*1.871,2 ) : >13}{                round(float(df_c['Assets'])*1.871,2):>13}")
+print(f"FM revenue     {round(float(df_t['Revenue_Recipient']-df_c['Revenue_Recipient'])*converstion, 2): >13}{        round(float(df_t['Revenue_Nonrecipient'] - df_c['Revenue_Nonrecipient'])*converstion,2): >13}{          round(float(df_c['Revenue'])*converstion,2) :>13}")
+print(f"FM inventory   {round(float(df_t['Stock_Recipient']-df_c['Stock_Recipient']), 2): >13}{                        round(float(df_t['Stock_Nonrecipient'] - df_c['Stock_Nonrecipient']),2): >13}{                          round(float(df_c['Stock']),2) :>13}")
+
+print(f"Expenditure Recipient: {converstion* np.mean([hh.demand for hh in model.all_agents if hh.treated == 1])}")
+print(f"Expenditure Non recipient: {converstion* np.mean([hh.demand for hh in model.all_agents if hh.treated == 0])}")
+
+print(f"Expenditure Firm: {converstion* np.mean([hh.demand for hh in model.all_agents if hh.firm != None])}")
+print(f"Expenditure No Firm: {converstion* np.mean([hh.demand for hh in model.all_agents if hh.firm == None])}")
+print(f"Unemployment T: {df_t['Unemployment']}")
+print(f"Unemployment C: {df_c['Unemployment']}")
+print(F"Price T: {np.mean([fm.price for fm in model.all_firms])}")
+print(F"Price C: {np.mean([fm.price for fm in model_c.all_firms])}")
+
+print(F"Productivity R: {np.mean([hh.productivity for hh in model.all_agents if hh.treated == 1])}")
+print(F"Productivity NR: {np.mean([hh.productivity for hh in model.all_agents if hh.treated == 0])}")
+
+print(F"Firm R: {np.mean([1 if hh.treated == 1 and hh.firm!= None else 0 for hh in model.all_agents ])}")
+print(F"Firm NR: {np.mean([1 if hh.treated == 0 and hh.firm!= None else 0 for hh in model.all_agents ])}")
+
+
 #%%
+
 from linearmodels import PanelOLS
 
 def calculate_ATE(df_c, df_t, var):
@@ -106,10 +133,6 @@ def calculate_ATE(df_c, df_t, var):
   
   return clustered_SE
 
-  # Get summary of results
-  print(result)
-  return ATE
-
 hh_df_recipient_t = df_hh_t[df_hh_t['Treated'] == 1]
 hh_df_non_recipient_t = df_hh_t[df_hh_t['Treated'] == 0]                              
 fm_df_recipient_t = df_fm_t[df_fm_t['Treated'] == 1]
@@ -120,34 +143,8 @@ hh_df_non_recipient_c = df_hh_c[df_hh_c['Treated'] == 0]
 fm_df_recipient_c = df_fm_c[df_fm_c['Treated'] == 1]
 fm_df_non_recipient_c = df_fm_c[df_fm_c['Treated'] == 0]
 
-#%%
-converstion = 52*1.871
 
-print(f"               {'Recipients': >13}{'Nonrecipinets':>13}{'Control':>13}")
-print(f"HH expenditure {round(float(df_t['Expenditure_Recipient']-df_c['Expenditure_Recipient'])*converstion, 2): >13}{round(float(df_t['Expenditure_Nonrecipient'] - df_c['Expenditure_Nonrecipient'])*converstion, 2) : >13}{round(float(df_c['Expenditure'])*converstion,2) :>13}")
-print(f"HH money       {round(float(df_t['Money_Recipient']-df_c['Money_Recipient'])*1.871, 2): >13}{                   round(float(df_t['Money_Nonrecipient'] - df_c['Money_Nonrecipient'])*1.871,2 ) : >13}{     round(float(df_c['Money'])*1.871,2):>13}")
-print(f"HH income      {round(float(df_t['Income_Recipient']-df_c['Income_Recipient'])*converstion, 2) : >13}{         round(float(df_t['Income_Nonrecipient'] - df_c['Income_Nonrecipient'] )*converstion,2): >13}{           round(float(df_c['Income'])*converstion,2) :>13}")
-print(f"FM profit      {round(float(df_t['Profit_Recipient']-df_c['Profit_Recipient'])*converstion, 2) : >13}{         round(float(df_t['Profit_Nonrecipient'] - df_c['Profit_Nonrecipient'])*converstion,2) : >13}{           round(float(df_c['Profit'])*converstion,2) :>13}")
-print(f"FM assets      {round(float(df_t['Assets_Recipient']-df_c['Assets_Recipient'])*1.871, 2): >13}{                round(float(df_t['Assets_Nonrecipient'] - df_c['Assets_Nonrecipient'])*1.871,2 ) : >13}{     round(float(df_c['Assets'])*1.871,2):>13}")
-print(f"FM revenue     {round(float(df_t['Revenue_Recipient']-df_c['Revenue_Recipient'])*converstion, 2): >13}{        round(float(df_t['Revenue_Nonrecipient'] - df_c['Revenue_Nonrecipient'])*converstion,2): >13}{          round(float(df_c['Revenue'])*converstion,2) :>13}")
-print(f"FM inventory   {round(float(df_t['Stock_Recipient']-df_c['Stock_Recipient']), 2): >13}{                        round(float(df_t['Stock_Nonrecipient'] - df_c['Stock_Nonrecipient']),2): >13}{                          round(float(df_c['Stock']),2) :>13}")
-
-print(f"Expenditure Recipient: {converstion* np.mean([hh.demand for hh in model.all_agents if hh.treated == 1])}")
-print(f"Expenditure Non recipient: {converstion* np.mean([hh.demand for hh in model.all_agents if hh.treated == 0])}")
-
-print(f"Expenditure Firm: {converstion* np.mean([hh.demand for hh in model.all_agents if hh.firm != None])}")
-print(f"Expenditure No Firm: {converstion* np.mean([hh.demand for hh in model.all_agents if hh.firm == None])}")
-print(f"Unemployment T: {df_t['Unemployment']}")
-print(f"Unemployment C: {df_c['Unemployment']}")
-print(F"Price T: {np.mean([fm.price for fm in model.all_firms])}")
-print(F"Price C: {np.mean([fm.price for fm in model_c.all_firms])}")
-
-print(F"Productivity R: {np.mean([hh.productivity for hh in model.all_agents if hh.treated == 1])}")
-print(F"Productivity NR: {np.mean([hh.productivity for hh in model.all_agents if hh.treated == 0])}")
-
-print(F"Firm R: {np.mean([1 if hh.treated == 1 and hh.firm!= None else 0 for hh in model.all_agents ])}")
-print(F"Firm NR: {np.mean([1 if hh.treated == 0 and hh.firm!= None else 0 for hh in model.all_agents ])}")
-
+data = df_sm_c[df_sm_c['step'] == 52] 
 
 #%%
 
@@ -203,12 +200,16 @@ plot_dist(df_fm['profit'].values, 'Profit', (-200, 200))
 plot_dist(df_fm['assets'].values, 'Assets', (-500, 2000))
 plot_dist(df_fm['stock'].values, 'Stock', (0, 2000))
 
-
-data_o = 0.01 * read_dataframe("GE_HHLevel_ECMA.dta", "df")['p2_consumption']/52
+#%%
+data_o = (0.01 * read_dataframe("GE_HHLevel_ECMA.dta", "df")['p2_consumption']/52)
 data_c = df_hh['demand']
-compare_dist(data_c, data_o, 'Expenditure Density', (0,100))
+compare_dist(data_o, data_c, 'Expenditure Density', (0,100))
 
-#%%%
+
+data_o = 0.01 * read_dataframe("GE_HHLevel_ECMA.dta", "df")['p2_consumption']
+print(np.mean(data_o))
+
+#%%
 # Questions
 # OK 1) How does intervention group look like? mostly firm owners? -> mostly employed workers with low productivity
 # 2) Why dip in treated after token
