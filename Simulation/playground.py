@@ -285,7 +285,7 @@ def create_list_partition(input_list):
 
     # while the list is larger than 10 split the input list into exponentially decaying sublist
     while n > 10:
-        n = math.floor(len(input_list)/7)
+        n = math.floor(len(input_list)/2)
         output_list.append(input_list[:n])
         input_list = input_list[n:]
 
@@ -300,7 +300,7 @@ output_list = create_list_partition(input_list)
 
 data = [len(sublist) for sublist in output_list]
 print(data)
-# %%
+
 num_bars = len(data) // 4 + (len(data) % 4 > 0)  # Ceiling division
 
 # Calculate the averages for each group of four entries

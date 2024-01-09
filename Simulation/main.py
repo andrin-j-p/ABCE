@@ -118,7 +118,6 @@ def batch_runner(hh_attr):
 
   steps = 1000
 
-
   model_c = Model()
   model_c.datacollector = Validation_collector(model_c)
   model_c.intervention_handler.control = True
@@ -129,7 +128,7 @@ def batch_runner(hh_attr):
 
 
   model_c.run_simulation(steps)
-  df_c_1 = model_c.datacollector.get_data()
+  df_c_1,_, _ = model_c.datacollector.get_data()
 
 
 ###############################################
@@ -147,7 +146,7 @@ def batch_runner(hh_attr):
       setattr(hh, parameter, value)
 
   model.run_simulation(steps)
-  df_t_1 = model.datacollector.get_data()
+  df_t_1, _, _ = model.datacollector.get_data()
 
 
   variables_t = iter(df_t_1.columns[1:-1])
@@ -163,7 +162,7 @@ def batch_runner(hh_attr):
   converstion = 52*1.871
   print(f"               {'Recipients': >13}{'Nonrecipinets':>13}{'Control':>13}")
   print(f"HH expenditure {round(float(df_t['Expenditure_Recipient']-df_c['Expenditure_Recipient'])*converstion, 2): >13}{round(float(df_t['Expenditure_Nonrecipient'] - df_c['Expenditure_Nonrecipient'])*converstion, 2) : >13}{round(float(df_c['Expenditure_Nonrecipient'])*converstion,2) :>13}")
-  print(f"HH money      {round(float(df_t['Money_Recipient']-df_c['Money_Recipient'])*1.871, 2): >13}{                     round(float(df_t['Money_Nonrecipient'] - df_c['Money_Nonrecipient'])*1.871,2 ) : >13}{     round(float(df_c['Assets_Nonrecipient'])*1.871,2):>13}")
+  print(f"HH money       {round(float(df_t['Money_Recipient']-df_c['Money_Recipient'])*1.871, 2): >13}{                     round(float(df_t['Money_Nonrecipient'] - df_c['Money_Nonrecipient'])*1.871,2 ) : >13}{     round(float(df_c['Assets_Nonrecipient'])*1.871,2):>13}")
   print(f"HH income      {round(float(df_t['Income_Recipient']-df_c['Income_Recipient'])*converstion, 2) : >13}{        round(float(df_t['Income_Nonrecipient'] - df_c['Income_Nonrecipient'] )*converstion,2): >13}{           round(float(df_c['Income_Nonrecipient'])*converstion,2) :>13}")
   print(f"FM profit      {round(float(df_t['Profit_Recipient']-df_c['Profit_Recipient'])*converstion, 2) : >13}{        round(float(df_t['Profit_Nonrecipient'] - df_c['Profit_Nonrecipient'])*converstion,2) : >13}{           round(float(df_c['Profit_Nonrecipient'])*converstion,2) :>13}")
   print(f"FM assets      {round(float(df_t['Assets_Recipient']-df_c['Assets_Recipient'])*1.871, 2): >13}{                     round(float(df_t['Assets_Nonrecipient'] - df_c['Expenditure_Nonrecipient'])*1.871,2 ) : >13}{     round(float(df_c['Assets_Nonrecipient'])*1.871,2):>13}")
@@ -187,7 +186,7 @@ def batch_runner(hh_attr):
   print(F"Firm NR: {np.mean([1 if hh.treated == 0 and hh.firm!= None else 0 for hh in model.all_agents ])}")
 
 
-hh_attrs = [{'money': 80}, {'money': 90}, {'money': 100},] 
+hh_attrs = [{'productivity': 1.12}, {'money': 1.13}, {'money': 1.14},] 
 
 for hh_attr in  hh_attrs:
   batch_runner(hh_attr=hh_attr)

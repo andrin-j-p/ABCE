@@ -91,7 +91,7 @@ class Intervention_handler():
 ### Level 1 randomization
 
     # assign high saturation status to 30 random markets (without replacment)
-    high_sat_mk = random.sample(self.model.all_markets, k=34)
+    high_sat_mk = random.sample(self.model.all_markets, k=33)
     for mk in high_sat_mk:
       setattr(mk, 'saturation', 1)
 

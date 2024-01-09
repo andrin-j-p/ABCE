@@ -140,7 +140,7 @@ class Firm(mesa.Agent):
       #self.owner.money += (1 - reserves) * self.profit
 
       nr_emp = len(self.employees)
-      factor = 0.5 if nr_emp > 0 else 1
+      factor = 0.8 if nr_emp > 0 else 1
       payout_own = factor*(1- reserves)*self.profit
       payout_emp = (1-factor) * (1- reserves)*self.profit
 
@@ -164,6 +164,7 @@ class Firm(mesa.Agent):
       self.assets += self.profit
       self.owner.income = 0
       self.owner.money += 0
+
       
   def step(self):
     """
@@ -199,8 +200,8 @@ class Agent(mesa.Agent):
     super().__init__(unique_id, model)
     # parameters to be calibrated
     self.alpha = 0.78 # propensity to consume
-    self.mu = 3
-    self.sigma = 0.9
+    self.mu = 3.2
+    self.sigma = 0.65
 
     # initialize geo-related characteristics
     self.village = village
@@ -212,7 +213,7 @@ class Agent(mesa.Agent):
     self.firm = firm 
     self.employer = employer
     self.best_dealers = []
-    self.productivity = 0.6* float(np.random.lognormal(self.mu, self.sigma, size=1) + 1)
+    self.productivity = 0.6 * float(np.random.lognormal(self.mu, self.sigma, size=1) + 1)
 
     # initialize treatment status
     self.treated = 0
