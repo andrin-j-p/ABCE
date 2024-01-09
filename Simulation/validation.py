@@ -74,12 +74,13 @@ def create_lineplots(df_t, df_c, variables):
 variables = df_sm_t.columns[1:]
 create_lineplots(df_sm_t, df_sm_c, variables)
 
+
 df_t = df_sm_t[df_sm_t['step'] == 142] 
 df_c = df_sm_c[df_sm_c['step'] == 142] 
 
 
 converstion = 52*1.871
-
+print('prod: 1.13')
 print(f"               {'Recipients': >13}{'Nonrecipinets':>13}{'Control':>13}")
 print(f"HH expenditure {round(float(df_t['Expenditure_Recipient']-df_c['Expenditure_Recipient'])*converstion, 2): >13}{round(float(df_t['Expenditure_Nonrecipient'] - df_c['Expenditure_Nonrecipient'])*converstion, 2) : >13}{round(float(df_c['Expenditure'])*converstion,2) :>13}")
 print(f"HH money       {round(float(df_t['Money_Recipient']-df_c['Money_Recipient'])*1.871, 2): >13}{                   round(float(df_t['Money_Nonrecipient'] - df_c['Money_Nonrecipient'])*1.871, 2 ) : >13}{                round(float(df_c['Money'])*1.871,2):>13}")
