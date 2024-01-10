@@ -221,7 +221,7 @@ class Agent(mesa.Agent):
     # initialize consumption related characteristics
     self.market_day = np.random.randint(0, 7) # day the agent goes to market. Note: bounds are included
     self.best_dealer_price = 10 # agent remembers price of best dealer last week
-    self.money = 80 # household liquidity
+    self.money = 83 # household liquidity
     self.demand = 0 
 
   def find_dealer(self):
