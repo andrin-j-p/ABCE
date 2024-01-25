@@ -23,14 +23,14 @@ class Firm(mesa.Agent):
     self.owner = None
     self.market = market
     self.village = village
-    self.productivity = 1.15
+    self.productivity = 0.975
     # price
     self.price = np.random.uniform(1, 10) # price in current month (initialized randomly)
-    self.marginal_cost = 1# labor is payed its productivity 
-    self.max_price = 11 
+    self.marginal_cost = 1 # labor is payed its productivity 
+    self.max_price = 10 
     self.theta = 0.8 # probability for price change
     self.nu = 0.3 # rate for price change @Calibrate
-    self.phi_l = 0.1 # phi_l * sales = minimal stock @Calibrate
+    self.phi_l = 0.12 # phi_l * sales = minimal stock @Calibrate
     self.phi_u = 1 # phi_u * sales = max stock for @Calibrate
     self.employees = [] 
     # inventory 
@@ -41,7 +41,7 @@ class Firm(mesa.Agent):
     self.sales = 0  # quantity sold this month
     # profit
     self.money = 0
-    self.assets = 200
+    self.assets = 250
     self.profit = 0
     self.revenue = 0
 
@@ -199,9 +199,9 @@ class Agent(mesa.Agent):
   def __init__(self, unique_id, model, village, firm, employer, pos):
     super().__init__(unique_id, model)
     # parameters to be calibrated
-    self.alpha = 0.78 # propensity to consume
-    self.mu = 3.2
-    self.sigma = 0.65
+    self.alpha = 0.81 # propensity to consume
+    self.mu = 3.35
+    self.sigma = 0.7
 
     # initialize geo-related characteristics
     self.village = village
@@ -213,7 +213,7 @@ class Agent(mesa.Agent):
     self.firm = firm 
     self.employer = employer
     self.best_dealers = []
-    self.productivity = 0.6 * float(np.random.lognormal(self.mu, self.sigma, size=1) + 1)
+    self.productivity = float(np.random.lognormal(self.mu, self.sigma, size=1) + 1)
 
     # initialize treatment status
     self.treated = 0
@@ -221,7 +221,7 @@ class Agent(mesa.Agent):
     # initialize consumption related characteristics
     self.market_day = np.random.randint(0, 7) # day the agent goes to market. Note: bounds are included
     self.best_dealer_price = 10 # agent remembers price of best dealer last week
-    self.money = 80 # household liquidity
+    self.money = 100 # household liquidity
     self.demand = 0 
 
   def find_dealer(self):

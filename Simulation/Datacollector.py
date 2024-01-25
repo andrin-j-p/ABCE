@@ -117,43 +117,20 @@ class Sparse_collector():
     """
     step = self.model.schedule.steps
 
-    self.md_data.append( {'step': step, 'no_worker_found': self.no_worker_found, 'no_dealer_found': self.no_dealer_found, 'worker_fired': self.worker_fired})
-    
-    self.no_worker_found = 0
-    self.no_dealer_found = 0
-    self.worker_fired = 0
+    self.td_data = []
+
     return
 
   def get_calibration_data(self):
 
-    hh_data = [(hh.employer, hh.firm, hh.demand, hh.income, hh.money, hh.productivity) 
-                for hh in self.model.all_agents]
-    
-    fm_data = [(firm.unique_id, firm.stock, firm.output, firm.profit, firm.sales, firm.assets, len(firm.employees), len(firm.costumers), firm.market.unique_id, firm.price, firm.revenue)
-                for firm in self.model.all_firms]
-    
-    df_hh = pd.DataFrame(hh_data, columns=['employer', 'firm', 'demand', 'income', 'money', 'productivity'])
-    
-    df_fm = pd.DataFrame(fm_data, columns=['id', 'stock', 'output', 'profit', 'sales', 'assets', 'employees', 
-                                           'costumers', 'market_id', 'price', 'revenue'])
+    hh_data = [hh.demand for hh in self.model.all_agents]
 
-    sm_data = [((sum(1 for item in df_hh['employer']  if item == None) / len(self.model.all_agents)), # umemployment_rate
-                df_fm['employees'].mean(),    # employees average
-                df_fm['employees'].var(),     # employees variance
-                df_fm['profit'].mean(),       # profit averag
-                df_fm['profit'].var(),        # profit variance
-                df_fm['sales'].mean(),        # revenue average
-                df_fm['sales'].var(),         # revenue variance
-                df_fm['stock'].mean(),        # stock average 
-                df_fm['stock'].var(),         # stock variance
-                df_hh['demand'].mean(),       # consumption averrage
-                df_hh['demand'].var())]       # consumption variance
+    df_hh = pd.DataFrame(hh_data, columns=[ 'demand'])
     
+    data = [df_hh['demand'].mean(),      # consumption averrage
+            df_hh['demand'].var()]       # consumption variance
 
-    df_md = pd.DataFrame(self.md_data)
-    df_td = pd.DataFrame(self.td_data)
-
-    return np.array(sm_data).flatten(), df_hh, df_fm, df_md, df_td
+    return data
 
 #Add all functionalities from collector 1 + hh fine grained data
 class Validation_collector():

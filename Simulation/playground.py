@@ -16,9 +16,9 @@ pd.set_option('expand_frame_repr', False)
 pd.set_option('display.width', 10000)
 #%%
 
-itr = pd.read_stata('../data/raw_data/GE_HH-ENT_Baseline_Combined.dta', iterator=True)
+itr = pd.read_stata('../data/raw_data/GE_HH-Survey-BL_Analysis_AllHHs.dta', iterator=True)
 dct = itr.variable_labels()
-f = open("var_des_GE_HH-ENT_Baseline_Combined.txt", "w")
+f = open("GE_HH-Survey-BL_Analysis_AllHHs.txt", "w")
 f.write("{\n")
 for k in dct.keys():
     f.write("'{}':'{}'\n".format(k, dct[k]))
@@ -51,7 +51,8 @@ print(len(df_revenue['selfemp']))
 
 # %%
 df_hh, df_fm, df_md, df_td = read_data.create_agent_data()
-print(df_hh['p3_totincome_PPP'] -df_hh['p2_consumption_PPP'])
+print(np.mean(df_hh['p3_totincome_PPP']))
+print(np.mean(df_hh['p2_consumption_PPP']))
 
 # %%
 az.style.use("arviz-doc")

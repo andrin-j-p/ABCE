@@ -103,22 +103,10 @@ def create_agent_data():
 
     # load household datasets
     df_hh = read_dataframe("GE_HHLevel_ECMA.dta", "df")
-    df_hh_assets = read_dataframe("GE_HH-BL_assets.dta", "df")
 
     # selcet the variables of interest
     df_hh = df_hh.loc[:, ["hhid_key", "village_code", "p3_totincome", "own_land_acres", "landprice_BL", "landprice", 
-                          "treat", "s12_q1_cerealsamt_12mth", 'p3_totincome_PPP', 'p2_consumption', 'p4_3_selfemployed']]
-    
-    df_hh_assets = df_hh_assets.loc[:, ["hhid_key","h1_1_livestock", "h1_2_agtools", "h1_11_landvalue", "h1_12_loans"]]
-    
-    # combine all hh data into one df
-    df_hh = df_hh.merge(df_hh_assets, on='hhid_key')
-
-    # replace NANs in own_land_acres with zero
-    df_hh["own_land_acres"].fillna(0, inplace=True)
-
-    # replace NANs in h1_11_landvalue with an estimate based on land value and land owned
-    df_hh['h1_11_landvalue'] = np.where(df_hh['h1_11_landvalue'].isnull(),df_hh['landprice_BL'] * df_hh['own_land_acres'],df_hh['h1_11_landvalue'])    
+                          "treat", "hi_sat", "s12_q1_cerealsamt_12mth", 'p3_totincome_PPP', 'p2_consumption_PPP', 'p4_3_selfemployed']]
     
     # drop 3 agents with negative income and no firm 
     df_hh  = df_hh.drop(df_hh[df_hh['hhid_key'].isin(['601010103003-144', '601020404002-039', '601050304006-038'])].index)
@@ -136,7 +124,6 @@ def create_agent_data():
     df_mk = pd.DataFrame({'pos': mk_pos,
                           'county': county,
                           'market_id': np.arange(61)})
-
 
 ### Village Data 
 
