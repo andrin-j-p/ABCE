@@ -7,7 +7,7 @@ from matplotlib import pyplot as plt
 import pandas as pd
 from scipy.stats import qmc
 import ABM
-from data_collector import Sparse_collector
+from Datacollector import Sparse_collector
 import timeit
 import arviz as az
 import dill
