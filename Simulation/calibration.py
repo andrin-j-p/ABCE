@@ -20,7 +20,7 @@ data_o = data_o[(data_o['hi_sat']==0) & (data_o['treat'] == 0)]['p2_consumption_
 print(data_o.mean())
 print(math.sqrt(data_o.var()))
 print(data_o.skew())
-#%%
+
 # Parameters to be calibrated
 #====================================
 # theta: probability for price change
@@ -28,12 +28,12 @@ print(data_o.skew())
 # phi_l: lower inventory rate 
 # phi_u: uper inventory rate 
 #
-# alpha: cobb douglas demand parameter
-# shape: parameter for gamma distribution (employee productivity)
-# scale: parameter for gamme distribution (employee productivity)
+# alpha: .81 cobb douglas demand parameter
+# mu   : 3.35shape parameter for gamma distribution (employee productivity)
+# sigma: parameter for gamme distribution (employee productivity)
 data = {'Type': ['fm', 'fm', 'fm', 'fm', 'hh', 'hh', 'hh'], 
         'Name': ['theta', 'nu', 'phi_l', 'phi_u', 'alpha', 'mu', 'sigma'],
-        'Bounds': [(0,1), (0.05, 0.5), (0.05, 0.5), (0.5, 1.5), (0,1), (0,2), (2,4)]} 
+        'Bounds': [(0,1), (0.05, 0.5), (0.05, 0.5), (0.5, 1.5), (0.5,1), (2,4), (0,1)]} 
   
 # Create DataFrame 
 df_para = pd.DataFrame(data) 
@@ -221,10 +221,10 @@ class Surrogate(nn.Module):
             nn.Linear(100, 100),
             nn.ReLU(),
             nn.Dropout(0.1), 
-            nn.Linear(100, 100),
+            nn.Linear(100, 10),
             nn.ReLU(),
             nn.Dropout(0.1),
-            nn.Linear(100, O),
+            nn.Linear(10, O),
         )
 
     def forward(self, x):
@@ -299,7 +299,7 @@ loss_fn = nn.MSELoss()
 optimizer = torch.optim.Adam(params=surrogate.parameters(), lr=eta)
 
 # get train and test data as dataloaders
-train_loader, test_loader = create_dataloader(model_runs=4, model_steps=100, batch_size=24, model_r=1, load=True)
+train_loader, test_loader = create_dataloader(model_runs=7, model_steps=100, batch_size=24, model_r=5, load=True)
 
 # Train the surrogate model
 train(train_loader, test_loader, surrogate, loss_fn, optimizer, epochs)
@@ -347,7 +347,7 @@ def rejection_abc(y, surrogate):
   proposal_dist = multivariate_normal(mean=mean_values, cov=cov_matrix)
 
   # Set the threshhold to the best guess
-  epsilon = best_guess[2]#selected_samples[int(len(selected_samples) * 0.01)][2]
+  epsilon = selected_samples[int(len(selected_samples) * 0.01)][2]#best_guess[2]#
 
   # plot the posterior density
   ABC_MCMC = []
@@ -379,7 +379,7 @@ def plot_distributions(estimated_thetas, true_thetas):
   for i, parameter in enumerate(df_para['Name'].values):
     az.plot_dist( [theta[i] for theta in estimated_thetas], ax=ax[i], label="Surrogate Output", rug = True, color='#0E7580', quantiles=[.05, .5, .95] )
     # Add true value as line, labels, title and legend 
-    ax[i].axvline(x=true_thetas[i], color='#800E0E', linestyle='--', label='Vertical Line at 0')
+    #ax[i].axvline(x=true_thetas[i], color='#800E0E', linestyle='--', label='Vertical Line at 0')
     ax[i].set_xlabel("Value")
     ax[i].set_ylabel("Density")
     ax[i].set_title(f"Kernel Density {parameter}")
@@ -388,9 +388,9 @@ def plot_distributions(estimated_thetas, true_thetas):
   # Show the plot
   plt.show()
 
-# plot the
 #plot_distributions()
 
 estimated_thetas, best_guess = rejection_abc(y, surrogate)
-print(best_guess)
-print(estimated_thetas)
+print(best_guess[1])
+
+# %%

@@ -9,6 +9,9 @@ from dash import dcc, html, Input, Output
 import ABM
 from read_data import read_dataframe, create_geojson
 import plotly.graph_objects as go
+from Datacollector import Validation_collector2
+
+
 # @TODO
 # add selection widget for village in graph plot
 # draw village selected in map
@@ -17,6 +20,57 @@ import plotly.graph_objects as go
 # add more info on node hover
 # add 3D plot
 # Preload the model
+
+def create_line(x, df, title, ylabel):
+    """
+    Type:        Helper function 
+    Description: Creates line plot objects used in callback
+    """
+
+    y_upper = df[f'{ylabel}_Upper'].tolist()
+    y_lower = df[f'{ylabel}_Lower'].tolist()
+    y = df[f'{ylabel}'].tolist()
+
+    fig = go.Figure([
+        go.Scatter(
+            x=x,
+            y=y,
+            line=dict(color='rgb(0,100,80)'),
+            mode='lines',
+            name='Mean'
+        ),
+        go.Scatter(
+            x=x + x[::-1],  # x, then x reversed
+            y=y_upper + y_lower[::-1],  # upper, then lower reversed
+            fill='toself',
+            fillcolor='rgba(0,100,80,0.2)',
+            line=dict(color='rgba(255,255,255,0)'),
+            hoverinfo="skip",
+            name='Confidence Interval'
+        )
+    ])
+
+    return fig
+
+    # create figure object
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=x, y=df[f'{ylabel}'], mode='lines'))  # Use 'lines' mode for a line plot
+    fig.add_trace(go.Scatter(
+    x=x+x[::-1],
+    y=df[f'{ylabel}_Lower'] + df[f'{ylabel}_Upper'],
+    fill='toself',
+    fillcolor='rgba(0,176,246,0.2)',
+    line_color='rgba(255,255,255,0)',
+    name='Premium',
+    showlegend=False,
+))
+    fig.update_layout(title=f'Average Daily {title}', xaxis_title='Step', yaxis_title=f'{ylabel}', 
+                      width=1000,    
+                      height=500,
+                      xaxis=dict(showgrid=False, zeroline=False, showticklabels=True),
+                      yaxis=dict(showgrid=False, zeroline=True, showticklabels=True))
+
+    return fig
 
 def create_circle_coordinates(N, radius):
     """
@@ -39,7 +93,8 @@ def create_circle_coordinates(N, radius):
 
     return coordinates
 
-def create_subgraph(G, in_village_nodes):
+
+def create_subgraph_G1(G, in_village_nodes):
     """
     Type: Helper function 
     Description: Creates a subgraph of G including all the nodes connected to the list of specified nodes
@@ -58,7 +113,176 @@ def create_subgraph(G, in_village_nodes):
     for i, n in enumerate(list(out_village_nodes)):
         G.nodes[n]['pos'] = out_village_coords[i]
 
-    return G.subgraph(set(in_village_nodes) | out_village_nodes)
+    subgraph = G.subgraph(set(in_village_nodes) | out_village_nodes)
+    node_adjacancies = []
+    node_text = []
+    for n, adjacencies in subgraph.adjacency():
+        node_adjacancies.append(len(adjacencies))
+        node_text.append('# of connections: '+ str(len(adjacencies)))
+
+    return subgraph, node_adjacancies, node_text
+
+def create_subgraph_G2(G, in_village_nodes, village):
+    """
+    Type:        Helper function 
+    Description: Creates a subgraph of G including all the nodes connected to the list of specified nodes
+    Used in:     visualize.py callback
+    """
+    # Iterate over all nodes in the village and collect their neighbors
+
+    node_adjacancies = []
+    node_text = []
+    # Add an edge for each within village connection 
+    for n, adjacencies in G.adjacency():
+      if G.nodes[n]['village'] == village:
+        node_adjacancies.append(len(adjacencies))
+        node_text.append('# of connections: '+ str(len(adjacencies)))
+
+    return G.subgraph(in_village_nodes), node_adjacancies, node_text
+
+def create_G1(G, node_adjacancies, node_text):
+    pos = {node: attributes['pos'] for node, attributes in G.nodes(data=True)}
+
+    trace_nodes = go.Scatter(
+        x=[pos[node][0] for node in G.nodes()],
+        y=[pos[node][1] for node in G.nodes()],
+        mode='markers',
+        hoverinfo='text',
+        marker=dict(
+            showscale=True,
+            colorscale='YlGnBu',
+            reversescale=True,
+            color=[],
+            size=10,
+            colorbar=dict(
+                thickness=15,
+                title='Node Connections',
+                xanchor='left',
+                titleside='right'
+            ),
+            line_width=2))
+        
+        
+    trace_nodes.marker.color = node_adjacancies
+    trace_nodes.text = node_text
+
+
+    edge_x = []
+    edge_y = []
+    for edge in G.edges():
+        x0, y0 = G.nodes[edge[0]]['pos']
+        x1, y1 = G.nodes[edge[1]]['pos']
+        edge_x.append(x0)
+        edge_x.append(x1)
+        edge_x.append(None)
+        edge_y.append(y0)
+        edge_y.append(y1)
+        edge_y.append(None)
+    
+    trace_edges = go.Scatter(
+        x=edge_x, y=edge_y,
+        line=dict(width=0.5, color='#888'),
+        hoverinfo='none', #distance btw. agents
+        mode='lines')
+    
+
+    # create the graph figure
+    fig = go.Figure(data=[trace_edges, trace_nodes],
+             layout=go.Layout(
+                width=2000,
+                height=2000,
+                title='Trade Network<br>',
+                titlefont_size=25,
+                showlegend=False,
+                hovermode='closest',
+                margin=dict(b=20,l=5,r=5,t=40),
+                xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+                yaxis=dict(showgrid=False, zeroline=False, showticklabels=False))
+                )
+    return fig
+
+
+def create_G2(G, node_adjacencies, node_text):
+    pos = {node: attributes['pos'] for node, attributes in G.nodes(data=True)}
+
+    # Create the 3D node traces
+    trace_nodes = go.Scatter3d(
+        x=[pos[node][0] for node in G.nodes()],
+        y=[pos[node][1] for node in G.nodes()],
+        z=[pos[node][2] for node in G.nodes()],
+        mode='markers',
+        text=0,
+        hoverinfo='text',
+        marker=dict(
+                showscale=True,
+                colorscale='YlGnBu',
+                reversescale=True,
+                color=[],
+                size=10,
+                colorbar=dict(
+                    thickness=15,
+                    title='Node Connections',
+                    xanchor='left',
+                    titleside='right'
+                ),
+                line_width=2))
+
+    trace_nodes.marker.color = node_adjacencies
+    trace_nodes.text = node_text
+
+    edge_x = []
+    edge_y = []
+    edge_z = []
+
+    for edge in G.edges():
+        x0, y0, z0 = pos[edge[0]]
+        x1, y1, z1 = pos[edge[1]]
+        edge_x.extend([x0, x1, None])
+        edge_y.extend([y0, y1, None])
+        edge_z.extend([z0, z1, None])
+
+    # Create the 3D edge traces
+    trace_edges = go.Scatter3d(
+        x=edge_x,
+        y=edge_y,
+        z=edge_z,
+        mode='lines',
+        hoverinfo='none',
+        line=dict(color='black', width=2)
+    )
+
+    axis=dict(showbackground=False,
+              showline=False,
+              zeroline=False,
+              showgrid=False,
+              showticklabels=False,
+              )
+
+    # Create layout
+    layout = go.Layout(
+        width=2000,    
+        height=2000,
+        title="3D Plotly Graph",
+        titlefont_size=25,
+        showlegend=False,
+        hovermode='closest',
+        scene=dict(
+            xaxis=dict(axis),
+            yaxis=dict(axis),
+            zaxis=dict(axis)
+        )
+    )
+
+    # Create the figure
+    fig = go.Figure(data=[trace_nodes, trace_edges], layout=layout)
+    return fig
+
+# update number of agents to be displayed
+# Instantiate the model
+steps = 100
+model = ABM.Sugarscepe()
+model.datacollector = Validation_collector2(model)
+model.run_simulation(steps)
 
 
 #start dash application
@@ -71,31 +295,35 @@ create_geojson(exectute=False)
 file_name = read_dataframe("filtered_ken.json", retval="file")
 polygons = json.load(open(file_name, "r"))
 
-# Instantiate the model
-model = ABM.Sugarscepe()
-
 # define app layout see https://www.youtube.com/watch?v=hSPmj7mK6ng&t=1187s
 app.layout = html.Div([
     # Title
     html.H1("ABCE", style={"textAlign":"center"}),
 
-    # Dropdown to select number of steps in the simulation
-    dcc.Dropdown(id="slct_range",
-                 options=[
-                  {"label":100, "value":100},
-                  {"label":200, "value":200},
-                  {"label":400, "value":400}
-                  ],
-                  multi=False,
-                  value=200,
-                  style={'width':'40%'}
-                ),
-
     html.Div(id='output_container', children=[]),
     html.Br(),
 
     dcc.Graph(id='ABM_map', figure={}),
-    dcc.Graph(id='ABM_graph', figure={}),
+    html.Div([
+    dcc.Graph(id='ABM_graph1', figure={}),
+    dcc.Graph(id='ABM_graph2', figure={}),
+    ], style={'display': 'flex', 'flex-direction': 'row'}),
+
+    # Dropdown to select number of steps in the simulation
+    dcc.Dropdown(id="slct_range",
+                 options=[
+                  {"label":'Expenditure', "value":'Expenditure'},
+                  {"label":'Money', "value":'Money'},
+                  {"label":'Income', "value":'Income'},
+                  {"label":'Profit', "value":'Profit'},
+                  {"label":'Asstes', "value":'Assets'},
+                  {"label":'Revenue', "value":'Revenue'},
+                  {"label":'Inventory', "value":'Inventory'}
+                  ],
+                  multi=False,
+                  value='Expenditure',
+                  style={'width':'40%'}
+                ),
 
     html.Div([
     #scatters
@@ -109,6 +337,8 @@ app.layout = html.Div([
   ]
 )
 
+
+
 """
 Type:        Callback Function
 Description: Updates information displayed if automatically triggered by an event
@@ -118,38 +348,34 @@ Comment:     Two outputs: one goes into 'ABM_map' one into 'output' container.
             One Input:obtained from html with id slct_range. I.p. value
 """
 @app.callback(
-    [Output(component_id='output_container', component_property='children'),
-     Output(component_id='ABM_map', component_property='figure'),
-     Output(component_id='ABM_graph', component_property='figure')],
+    [Output(component_id='output_container', component_property='children')],
+    [Output(component_id='ABM_map', component_property='figure'),
+     Output(component_id='ABM_graph1', component_property='figure'),
+     Output(component_id='ABM_graph2', component_property='figure'),
      Output(component_id='ABM_scatter1', component_property='figure'),
      Output(component_id='ABM_scatter2', component_property='figure'),
      Output(component_id='ABM_scatter3', component_property='figure'),
      Output(component_id='ABM_scatter4', component_property='figure'),
-     Output(component_id='ABM_scatter5', component_property='figure'),
-     [Input(component_id='slct_range', component_property='value')]
+     Output(component_id='ABM_scatter5', component_property='figure')],
+     Input(component_id='slct_range', component_property='value')
 )
 
 # automatically takes the Input value as argument. If there are two inputs there are two arguments in update_graph
 def update_graph(option_slctd):
     # displays the option selected
-    container = f"Number of steps: {option_slctd}"
-
-    # update number of agents to be displayed
-    model.run_simulation(option_slctd)
-    df_hh, df_fm, df_md, _= model.datacollector.get_data()
+    container = f"Outcome of Interest: {option_slctd}"
+    mapbox_data, sm_data = model.datacollector.get_data()
 
     # Create copies of the dataframes
-    dff_hh, dff_fm, dff_md = df_hh[:], df_fm[:], df_md[:]
     # @ change: negative numbers cannot be put as size
-    dff_hh['income'] = dff_hh['income'].apply(lambda x: 0 if x < 0 else x)
-    mapbox_data= dff_hh[dff_hh['step'] % 10 == 0]
+    sm_data['Income'] = sm_data['Income'].apply(lambda x: 0 if x < 0 else x)
 
     ## Create Scatter Mapbox
     
     # creates the scatter map and superimposes the county borders where the experiment took place
-    fig1 = px.scatter_mapbox(mapbox_data, lat="lat", lon="lon", color="money", size="income", animation_frame="step", animation_group="unique_id", 
+    fig1 = px.scatter_mapbox(mapbox_data, lat="lat", lon="lon", color="Money", size="Income", animation_frame="step", animation_group="unique_id", 
                              custom_data=[], color_continuous_scale=px.colors.cyclical.IceFire, height=1000, size_max=20, 
-                             hover_data=['village_id', 'income'])
+                             hover_data=['Village', 'Income'])
     fig1.update_traces(marker=dict(size=15))
 
     fig1.update_layout(
@@ -168,7 +394,10 @@ def update_graph(option_slctd):
             ],
         },
         margin={"l": 0, "r": 0, "t": 0, "b": 0},
+        height=2000,
+        width=4000  # Adjust the height parameter as per your requirement
     )
+
     fig1.add_trace(
         go.Scattermapbox(
             name='flow1',
@@ -184,7 +413,6 @@ def update_graph(option_slctd):
     ## Create Graph Plot
     
     # @TODO make a widget to specify the data for the graph (select village)
-    #       outsource createtion such that graph object is only created once then create subgraph in callback
     #       add comments
     
     # initialize a graph object
@@ -192,153 +420,58 @@ def update_graph(option_slctd):
 
     # create a list of all agents in the model
     agents_lst = model.all_agents
-
     # create a node for each agent in the model 
-    node_positions = {agent.unique_id: (0,0) for agent in agents_lst}
-    G.add_nodes_from(node_positions.keys())
-    
+    all_nodes = [(agent.unique_id, {'village': agent.village.unique_id, 
+                                    'pos': (np.random.uniform(-1,1),np.random.uniform(-1,1),np.random.uniform(-1,1))}) 
+                                    for agent in agents_lst]
+
+    # create a graph objects with nodes for all agents in the simulation 
+    G.add_nodes_from(all_nodes)
+
     # for all agents, add an edges for each of its trading partners
-    for row in dff_hh[dff_hh['step'] == option_slctd-1].itertuples():
-        for dealer in row.best_dealers:
-            G.add_edge(row.unique_id, dealer.unique_id)
+    for agent in model.all_agents:  
+        for firm in agent.best_dealers:
+            G.add_edge(agent.unique_id, firm.owner.unique_id)
 
-    # create a subgraph with the agents to be displayed
+    # create subgraph containing only nodes and edges in the village selected
     village = 'v_2'
-    agents_slctd = [agent.unique_id for agent in agents_lst if agent.village.unique_id == village]
-    G = create_subgraph(G, agents_slctd)
-    
-    # create edges to be displayed (see https://plotly.com/python/network-graphs/)
-    edge_x = []
-    edge_y = []
-    for edge in G.edges():
-        x0, y0 = G.nodes[edge[0]]['pos']
-        x1, y1 = G.nodes[edge[1]]['pos']
-        edge_x.append(x0)
-        edge_x.append(x1)
-        edge_x.append(None)
-        edge_y.append(y0)
-        edge_y.append(y1)
-        edge_y.append(None)
-    
-    edge_trace = go.Scatter(
-        x=edge_x, y=edge_y,
-        line=dict(width=0.5, color='#888'),
-        hoverinfo='none', #distance btw. agents
-        mode='lines')
+    in_village_nodes = [agent.unique_id for agent in agents_lst if agent.village.unique_id == village]
+    G2, node_adjacencies, node_text = create_subgraph_G2(G, in_village_nodes, village)
+    fig3 = create_G2(G2, node_adjacencies, node_text)
 
-    # create nodes to be displayed 
-    node_x = []
-    node_y = []
-    for node in G.nodes():
-        price, y = G.nodes[node]['pos']
-        node_x.append(price)
-        node_y.append(y)
-
-    node_trace = go.Scatter(
-        x=node_x, y=node_y,
-        mode='markers',
-        hoverinfo='text',
-        marker=dict(
-            showscale=True,
-            colorscale='YlGnBu',
-            reversescale=True,
-            color=[],
-            size=10,
-            colorbar=dict(
-                thickness=15,
-                title='Node Connections',
-                xanchor='left',
-                titleside='right'
-            ),
-            line_width=2))
-
-    node_adjacencies = []
-    node_text = []
-    for node, adjacencies in enumerate(G.adjacency()):
-        node_adjacencies.append(len(adjacencies[1]))
-        node_text.append('# of connections: '+ str(len(adjacencies[1])))
-
-    node_trace.marker.color = node_adjacencies
-    node_trace.text = node_text
-
-    # create the graph figure
-    fig2 = go.Figure(data=[edge_trace, node_trace],
-             layout=go.Layout(
-                width=1000,
-                height=1000,
-                title='Trade Network<br>',
-                titlefont_size=16,
-                showlegend=False,
-                hovermode='closest',
-                margin=dict(b=20,l=5,r=5,t=40),
-                xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-                yaxis=dict(showgrid=False, zeroline=False, showticklabels=False))
-                )
-    
-    ## Create Sankey Plot
+    G1, node_adjacencies, node_text = create_subgraph_G1(G, in_village_nodes)
+    fig2 = create_G1(G1, node_adjacencies, node_text)
 
     ## Create Scatter Plots
-    x = [i for i in range(option_slctd)]
+    x = [i for i in range(len(sm_data))]
 
-    # Get average daily price
-    y = dff_md['average_price']
+    # Average price
+    fig4 = create_line(x, sm_data, 'Average Daily Price', 'Expenditure')
+    fig5 = create_line(x, sm_data, 'Average Daily Price', option_slctd)
+    fig6 = create_line(x, sm_data, 'Average Daily Price', 'Expenditure')
+    fig7 = create_line(x, sm_data, 'Average Daily Price', 'Expenditure')
+    fig8 = create_line(x, sm_data, 'Average Daily Price', 'Expenditure')
 
-    # Create figure object
-    fig3 = go.Figure()
-    fig3.add_trace(go.Scatter(x=x, y=y,mode='markers'))
-    fig3.update_layout(title='Average Daily Price', xaxis_title = 'Step', yaxis_title = 'Price', 
-                       width=1000,    
-                       height=500,
-                       xaxis=dict(showgrid=False, zeroline=False, showticklabels=True),
-                       yaxis=dict(showgrid=False, zeroline=True, showticklabels=True))
-    
-    # get average inventory
-    y = dff_md['average_stock']
+    # Average employment
+    #fig6 = create_line(x, sm_data, 'Average Daily Employees', 'Money')
+#
+    ## Average income 
+    #fig7 = create_line(x, sm_data, 'Daily Trade Volume', 'Income')
+#
+    ## Average profit
+    #fig8 = create_line(x, sm_data, 'Average Income', 'Profit')
+#
+    ## Average expenditure
+    #fig8 = create_line(x, sm_data, 'Average Income', 'Assets')
+#
+    ## Average revenue
+    #fig5 = create_line(x, sm_data, 'Average Daily Inventory', 'Revenue')
 
-    # create figure object
-    fig4 = go.Figure()
-    fig4.add_trace(go.Scatter(x=x, y=y,mode='markers'))
-    fig4.update_layout(title='Average Daily Inventory', xaxis_title = 'Step', yaxis_title = 'Inventory', 
-                       width=1000,    
-                       height=500,
-                       xaxis=dict(showgrid=False, zeroline=False, showticklabels=True),
-                       yaxis=dict(showgrid=False, zeroline=True, showticklabels=True))
-
-    # get average employment
-    y = dff_md['average_employees']
-    
-    fig5 = go.Figure()
-    fig5.add_trace(go.Scatter(x=x, y=y,mode='markers'))
-    fig5.update_layout(title='Average Daily employees', xaxis_title = 'Step', yaxis_title = 'employees', 
-                       width=1000,    
-                       height=500,
-                       xaxis=dict(showgrid=False, zeroline=False, showticklabels=True),
-                       yaxis=dict(showgrid=False, zeroline=True, showticklabels=True))
-    
-    # get sales 
-    y = dff_md['trade_volume']
-    
-    fig6 = go.Figure()
-    fig6.add_trace(go.Scatter(x=x, y=y,mode='markers'))
-    fig6.update_layout(title='Daily Trade Volume', xaxis_title = 'Step', yaxis_title = 'Amount', 
-                       width=1000,    
-                       height=500,
-                       xaxis=dict(showgrid=False, zeroline=False, showticklabels=True),
-                       yaxis=dict(showgrid=False, zeroline=True, showticklabels=True))
-
-    # get sales 
-    y = dff_md['average_income']
-    
-    fig7 = go.Figure()
-    fig7.add_trace(go.Scatter(x=x, y=y,mode='markers'))
-    fig7.update_layout(title='Average Income', xaxis_title = 'Step', yaxis_title = 'Income', 
-                       width=1000,    
-                       height=500,
-                       xaxis=dict(showgrid=False, zeroline=False, showticklabels=True),
-                       yaxis=dict(showgrid=False, zeroline=True, showticklabels=True))
-
-    return container, fig1, fig2, fig3, fig4, fig5, fig6, fig7
+    return container, fig1, fig2, fig3, fig4, fig5, fig6, fig7, fig8, 
 
 
 if __name__ =='__main__':
-    app.run_server(debug=True)
+
+
+    app.run_server(debug=False)
+

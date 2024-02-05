@@ -9,7 +9,6 @@ from matplotlib import pyplot as plt
 np.random.seed(0) 
 random.seed(0)
 
-#def main():
 
 """
 Type:         Main function 
@@ -35,24 +34,6 @@ model.intervention_handler.control = True
 model.run_simulation(steps)
 
 hh_data, fm_data, md_data, _ = model.datacollector.get_data()
-
-df_F = hh_data[hh_data['owns_firm'].notna()]
-df_E = hh_data[hh_data['owns_firm'].isna()]
-
-for var in ['income', 'money', 'demand']:
-   #compare_line(df_F, df_E, var)
-   print('')
-
-
-print(F"Firm expend: {np.mean([hh.demand for hh in model.all_agents if hh.firm != None])}")
-print(F"Empl expend: {np.mean([hh.demand for hh in model.all_agents if hh.firm == None])}")
-
-print(F"Firm money: {np.mean([hh.money for hh in model.all_agents if hh.firm != None])}")
-print(F"Empl money: {np.mean([hh.money for hh in model.all_agents if hh.firm == None])}")
-
-print(F"Firm income: {np.mean([hh.income for hh in model.all_agents if hh.firm != None])}")
-print(F"Empl income: {np.mean([hh.income for hh in model.all_agents if hh.firm == None])}")
-
 
 # Pickle the DataFrame
 with open('../data/output_data/model_output.pkl', 'wb') as file:

@@ -200,8 +200,8 @@ class Agent(mesa.Agent):
     super().__init__(unique_id, model)
     # parameters to be calibrated
     self.alpha = 0.81 # propensity to consume
-    self.mu = 3.35
-    self.sigma = 0.7
+    self.mu = 3.
+    self.sigma = 1.3
 
     # initialize geo-related characteristics
     self.village = village
@@ -405,11 +405,11 @@ class Sugarscepe(mesa.Model):
     self.all_villages = []
     for i in range(len(self.df_vl)):
       mk = random.sample(self.all_markets, k=1)[0]
-      pos = (mk.pos[0] + random.uniform(-0.01, 0.01), # pos is a tuple of shape (lat, lon) as used for continuous_grid in mesa
-             mk.pos[1] + random.uniform(-0.01, 0.01)) 
+      pos = (mk.pos[0] + random.uniform(-0.1, 0.1), # pos is a tuple of shape (lat, lon) as used for continuous_grid in mesa
+             mk.pos[1] + random.uniform(-0.1, 0.1)) 
       
       # Create village instance and add it to schedule
-      vl = Village(unique_id=f"v_{i}", model=self, pos=mk.pos, county=mk.county, market=mk)
+      vl = Village(unique_id=f"v_{i}", model=self, pos=pos, county=mk.county, market=mk)
       mk.villages.append(vl)
       self.all_villages.append(vl)
       self.schedule.add(vl)
@@ -505,13 +505,13 @@ def run_simulation(steps = 50):
 
 if __name__ == "__main__":
 
-    cProfile.run("run_simulation()", filename="../data/profile_output.txt", sort='cumulative')
+    #cProfile.run("run_simulation()", filename="../data/profile_output.txt", sort='cumulative')
     
     # Create a pstats.Stats object from the profile file
-    profile_stats = pstats.Stats("../data/profile_output.txt")
+    #profile_stats = pstats.Stats("../data/profile_output.txt")
 
     # Sort and print the top N entries with the highest cumulative time
-    profile_stats.strip_dirs().sort_stats('cumulative').print_stats(20)
+    #profile_stats.strip_dirs().sort_stats('cumulative').print_stats(20)
     #run_simulation()
     print('')
 
