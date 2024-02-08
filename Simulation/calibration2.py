@@ -105,9 +105,7 @@ def create_dataset(model_runs, model_steps, model_r):
   Description: Crates the dataset for rejection ABC  
   """
   # Store a deep copy of the initial model state so model __init__ is only executed once
-  simulation = Model()
-  with open('../data/model_data/simulation_initial_state.dill', 'wb') as file:
-    dill.dump(simulation, file)
+  sim = Model()
 
   # create 2**model_runs theta values
   draws = create_sample_parameters(df_para, model_runs) 
@@ -122,18 +120,14 @@ def create_dataset(model_runs, model_steps, model_r):
   for i, sample in enumerate(samples):
     start = timeit.default_timer()
 
-    # load a copy of the initial state of the simulation 
-    with open('../data/model_data/simulation_initial_state.dill', 'rb') as file:
-      sim_copy = dill.load(file)
-
     # Set the parameter values in the simulation copy
-    sim_copy.set_parameters(sample)
+    sim.set_parameters(sample)
 
     # run the simulation with the specified parameter values
-    sim_copy.run_simulation(model_steps)
+    sim.run_simulation(model_steps)
 
     # get the x vector i.e. the desired summary statistics
-    ABM_output = sim_copy.datacollector.get_calibration_data()
+    ABM_output = sim.datacollector.get_calibration_data()
     x.append(ABM_output)
 
     # print status 
