@@ -10,9 +10,56 @@ import ABM
 from read_data import read_dataframe, create_geojson
 import plotly.graph_objects as go
 import pickle
+import seaborn as sns
+from matplotlib import pyplot as plt
 
 #start dash application
 app = dash.Dash(__name__)
+
+steps = 10
+model = ABM.Sugarscepe()
+model.intervention_handler.control = True
+model.run_simulation(steps)
+
+def create_scatter(x, y, title):
+    """
+    Type:        Helper function 
+    Description: Creates scatter plot objects used in callback
+    """
+    # create figure object
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=x, y=y,mode='markers'))
+    fig.update_layout(title=f'Average Daily {title}', xaxis_title = 'Step', yaxis_title = f'{title}', 
+                      width=1000,    
+                      height=500,
+                      xaxis=dict(showgrid=False, zeroline=False, showticklabels=True),
+                      yaxis=dict(showgrid=False, zeroline=True, showticklabels=True))
+
+    return fig
+
+
+def create_lineplots(df_t, df_c, variables):
+        
+    # Loop through each variable and plot on a separate subplot
+    for i, var in enumerate(variables):
+      fig, ax = plt.subplots()
+
+      sns.lineplot(data=df_c, x='step', y=var, label='Control', color='#52C290', ax=ax)
+      sns.lineplot(data=df_t, x='step', y=var, label='Treated', color='#2C72A6', ax=ax)
+        
+      # Add a vertical line at x=52
+      ax.axvline(x=52, color='red', linestyle='--')
+        
+      # Set plot labels and title for the current subplot
+      ax.set_xlabel('Step')
+      ax.set_ylabel(var)
+      ax.set_title(f"Comparison {var} Treatment vs. Control")
+        
+      # Add legend to the current subplot
+      ax.legend()
+    
+      # Show plot
+      plt.show()
 
 # Create GeoJSON. Only needs to be executed once to construct the file
 create_geojson(exectute=False)
@@ -76,16 +123,11 @@ Comment:     Two outputs: one goes into 'ABM_map' one into 'output' container.
 
 # automatically takes the Input value as argument. If there are two inputs there are two arguments in update_graph
 def update_graph(option_slctd):
-    # displays the option selected
-    container = f"Number of steps: {option_slctd}"
 
-    # update number of agents to be displayed
-    # Open the pickled file and load the DataFrame
-    with open('../data/output_data/model_output.pkl', 'rb') as file:
-      df_hh, df_fm, df_md = pickle.load(file)
+    hh_data, fm_data, md_data, _ = model.datacollector.get_data()
 
     # creates the scatter map and superimposes the county borders where the experiment took place
-    fig1 = px.scatter_mapbox(df_hh, lat="lat", lon="lon", color="money", size="income", animation_frame="step", animation_group="unique_id", 
+    fig1 = px.scatter_mapbox(hh_data, lat="lat", lon="lon", color="money", size="income", animation_frame="step", animation_group="unique_id", 
                              custom_data=[], color_continuous_scale=px.colors.cyclical.IceFire, height=1000, size_max=20, 
                              hover_data=['village_id', 'income'])
     fig1.update_traces(marker=dict(size=15))

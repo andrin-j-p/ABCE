@@ -3,4 +3,5 @@ __pycache__/
 *.pyc
 *.pyo
 data/
-data/model_data/
+data/output_data
+data/output_data/model_output.pkl

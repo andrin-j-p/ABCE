@@ -148,13 +148,8 @@ G.add_nodes_from(all_nodes)
 # for all agents, add an edges for each of its trading partners
 for village in village_list:   
   for vendor in village.market.vendors:
-    G.add_edge(village.unique_id, vendor.owner.unique_id)
+    G.add_edge(village.unique_id, vendor.owner.village.unique_id)
 
 
-### G2
-village = 601010103008
-agents_lst = model.all_agents
-agents_slctd = [agent.unique_id for agent in agents_lst if agent.village.unique_id == village]
 
-G2 = create_subgraph(G, agents_slctd)
-create_figure(G2)
+# %%

@@ -8,8 +8,8 @@ import arviz as az
 import pandas as pd
 import seaborn as sns
 import statsmodels.stats.api as sms
-
 import random
+import math
 np.random.seed(0) 
 random.seed(0)
 
@@ -70,23 +70,20 @@ def create_lineplots(df_t, df_c, variables):
       # Show plot
       plt.show()
 
-
 variables = df_sm_t.columns[1:]
 create_lineplots(df_sm_t, df_sm_c, variables)
-
 
 df_t = df_sm_t[df_sm_t['step'] == 142] 
 df_c = df_sm_c[df_sm_c['step'] == 142] 
 
-
-converstion = 52*1.871
-print('prod: 1.13')
+#%%
+converstion = 52
 print(f"               {'Recipients': >13}{'Nonrecipinets':>13}{'Control':>13}")
 print(f"HH expenditure {round(float(df_t['Expenditure_Recipient']-df_c['Expenditure_Recipient'])*converstion, 2): >13}{round(float(df_t['Expenditure_Nonrecipient'] - df_c['Expenditure_Nonrecipient'])*converstion, 2) : >13}{round(float(df_c['Expenditure'])*converstion,2) :>13}")
-print(f"HH money       {round(float(df_t['Money_Recipient']-df_c['Money_Recipient'])*1.871, 2): >13}{                   round(float(df_t['Money_Nonrecipient'] - df_c['Money_Nonrecipient'])*1.871, 2 ) : >13}{                round(float(df_c['Money'])*1.871,2):>13}")
+print(f"HH money       {round(float(df_t['Money_Recipient']-df_c['Money_Recipient']), 2): >13}{                   round(float(df_t['Money_Nonrecipient'] - df_c['Money_Nonrecipient']), 2 ) : >13}{                round(float(df_c['Money']),2):>13}")
 print(f"HH income      {round(float(df_t['Income_Recipient']-df_c['Income_Recipient'])*converstion, 2) : >13}{         round(float(df_t['Income_Nonrecipient'] - df_c['Income_Nonrecipient'] )*converstion,2): >13}{           round(float(df_c['Income'])*converstion,2) :>13}")
 print(f"FM profit      {round(float(df_t['Profit_Recipient']-df_c['Profit_Recipient'])*converstion, 2) : >13}{         round(float(df_t['Profit_Nonrecipient'] - df_c['Profit_Nonrecipient'])*converstion,2) : >13}{           round(float(df_c['Profit'])*converstion,2) :>13}")
-print(f"FM assets      {round(float(df_t['Assets_Recipient']-df_c['Assets_Recipient'])*1.871, 2): >13}{                round(float(df_t['Assets_Nonrecipient'] - df_c['Assets_Nonrecipient'])*1.871,2 ) : >13}{                round(float(df_c['Assets'])*1.871,2):>13}")
+print(f"FM assets      {round(float(df_t['Assets_Recipient']-df_c['Assets_Recipient']), 2): >13}{                round(float(df_t['Assets_Nonrecipient'] - df_c['Assets_Nonrecipient']),2 ) : >13}{                round(float(df_c['Assets']),2):>13}")
 print(f"FM revenue     {round(float(df_t['Revenue_Recipient']-df_c['Revenue_Recipient'])*converstion, 2): >13}{        round(float(df_t['Revenue_Nonrecipient'] - df_c['Revenue_Nonrecipient'])*converstion,2): >13}{          round(float(df_c['Revenue'])*converstion,2) :>13}")
 print(f"FM inventory   {round(float(df_t['Stock_Recipient']-df_c['Stock_Recipient']), 2): >13}{                        round(float(df_t['Stock_Nonrecipient'] - df_c['Stock_Nonrecipient']),2): >13}{                          round(float(df_c['Stock']),2) :>13}")
 
@@ -107,7 +104,73 @@ print(F"Firm R: {np.mean([1 if hh.treated == 1 and hh.firm!= None else 0 for hh 
 print(F"Firm NR: {np.mean([1 if hh.treated == 0 and hh.firm!= None else 0 for hh in model.all_agents ])}")
 
 
+def compare_dist(data_o, data_c , title, lim):
+  az.style.use("arviz-doc")
+
+  fig, ax = plt.subplots()
+  az.plot_dist(data_o, ax=ax, label="Observed", rug = True, rug_kwargs={'space':0.1}, fill_kwargs={'alpha': 0.7})
+  az.plot_dist(data_c, ax=ax, label="Simulated", color='red', rug=True,  rug_kwargs={'space':0.2}, fill_kwargs={'alpha': 0.7})
+  
+  # Add labels, title, legend, etc.
+  ax.set_ylabel("Density")
+  ax.set_xlabel("Value")
+  ax.set_title(f"Kernel Density Comparision True and Simulated {title}")
+  ax.legend()
+
+  # Show the plot
+  plt.xlim(lim[0], lim[1])
+  plt.show()
+
+
+data_o = read_dataframe("GE_HHLevel_ECMA.dta", "df")
+data_o = data_o[(data_o['hi_sat']==0) & (data_o['treat'] == 0)]['p2_consumption_PPP']/52
+
+df_hh = model.datacollector.hh_df
+data_c = df_hh[(df_hh['Saturation'] == 0) & (df_hh['Treated'] == 0)]['Expenditure']
+
 #%%
+print(data_c.mean())
+print(math.sqrt(data_c.var()))
+
+
+compare_dist(data_o, data_c, 'Expenditure Density', (0,100))
+
+#%%
+# Questions
+# OK 1) How does intervention group look like? mostly firm owners? -> mostly employed workers with low productivity
+# 2) Why dip in treated after token
+# 3) Why demand/income/ money increases more for control
+# 4) how does benefit differ firm owner and employees
+# OK 4) Why only token permanent effect? It does not, it is due to split into rich and poor 
+
+# Explenations
+# 2) got unemployed recently not yet at rock bottom (plausible if treated mostly workers)
+# 2) firm goes through rough patch (plausible if treated mostly firm owners)
+# 4) only so many more worker they can hire  
+
+# Approaches
+# 0) Scatter the distribution of money to make it last longer
+# 0) More firms -> more firm owners in treatment check how in data
+# 0) Choose 50% poorest and then randomize (ansers Q4? )
+# 0) Make hh act on different markets
+# 1) wage depending on firm performance
+# 1) Investment how? If firm assets increase make cobb douglas with capital
+# 2) Make effect last longer f.i. propensity to consume
+# 2) Alternative ocupation how? and how useful?
+# 2) Incorporate slack how?
+
+# Insights
+# 1) In simulation most recipients are employed low productivity households. Might explain why effect on other hh is just as much 
+
+print(df_t['Unemployment'])
+
+print(f" Treated firm: {len([agent for agent in model.treated_agents if agent.firm != None])}")
+print(f" Treaded no firm: {len([agent for agent in model.treated_agents if agent.firm == None])}")
+print(f" Treaded empleyd: {len([agent for agent in model.treated_agents if agent.employer != None])}")
+print(f" Treaded unemployed: {len([agent for agent in model.treated_agents if  agent.employer == None])}")
+print(f" Treaded productivity: {np.mean([agent.productivity for agent in model.treated_agents])}")
+print(f" Total average productivity: {np.mean([agent.productivity for agent in model.all_agents])}")
+
 
 from linearmodels import PanelOLS
 
@@ -147,8 +210,8 @@ fm_df_non_recipient_c = df_fm_c[df_fm_c['Treated'] == 0]
 
 data = df_sm_c[df_sm_c['step'] == 52] 
 
-#%%
 
+#%%
 def plot_dist(data, title, limit):
   az.style.use("arviz-doc")
 
@@ -189,59 +252,23 @@ model = Model()
 model.datacollector = Sparse_collector(model)
 model.run_simulation(360)
 
+
 # get simulated data
 df_sm, df_hh, df_fm, df_md, df_td = model.datacollector.get_calibration_data()
 
-# plot distributions
-plot_dist(df_hh['demand'].values, 'Expenditure', (0, 500))
-plot_dist(df_hh['money'].values, 'Money', (-50, 1000))
-plot_dist(df_hh['income'].values, 'Income', (-50, 300))
-plot_dist(df_fm['revenue'].values, 'Revenue', (0, 200))
-plot_dist(df_fm['profit'].values, 'Profit', (-200, 200))
-plot_dist(df_fm['assets'].values, 'Assets', (-500, 2000))
-plot_dist(df_fm['stock'].values, 'Stock', (0, 2000))
+print(np.mean(df_hh['demand']))
+print(np.mean(df_hh['money']))
 
-#%%
-data_o = (0.01 * read_dataframe("GE_HHLevel_ECMA.dta", "df")['p2_consumption']/52)
+# plot distributions
+#plot_dist(df_hh['demand'].values, 'Expenditure', (0, 500))
+#plot_dist(df_hh['money'].values, 'Money', (-50, 1000))
+#plot_dist(df_hh['income'].values, 'Income', (-50, 300))
+#plot_dist(df_fm['revenue'].values, 'Revenue', (0, 200))
+#plot_dist(df_fm['profit'].values, 'Profit', (-200, 200))
+#plot_dist(df_fm['assets'].values, 'Assets', (-500, 2000))
+#plot_dist(df_fm['stock'].values, 'Stock', (0, 2000))
+
+
+data_o = read_dataframe("GE_HHLevel_ECMA.dta", "df")['p2_consumption_PPP']/52
 data_c = df_hh['demand']
 compare_dist(data_o, data_c, 'Expenditure Density', (0,100))
-
-
-data_o = 0.01 * read_dataframe("GE_HHLevel_ECMA.dta", "df")['p2_consumption']
-print(np.mean(data_o))
-
-#%%
-# Questions
-# OK 1) How does intervention group look like? mostly firm owners? -> mostly employed workers with low productivity
-# 2) Why dip in treated after token
-# 3) Why demand/income/ money increases more for control
-# 4) how does benefit differ firm owner and employees
-# OK 4) Why only token permanent effect? It does not, it is due to split into rich and poor 
-
-# Explenations
-# 2) got unemployed recently not yet at rock bottom (plausible if treated mostly workers)
-# 2) firm goes through rough patch (plausible if treated mostly firm owners)
-# 4) only so many more worker they can hire  
-
-# Approaches
-# 0) Scatter the distribution of money to make it last longer
-# 0) More firms -> more firm owners in treatment check how in data
-# 0) Choose 50% poorest and then randomize (ansers Q4? )
-# 0) Make hh act on different markets
-# 1) wage depending on firm performance
-# 1) Investment how? If firm assets increase make cobb douglas with capital
-# 2) Make effect last longer f.i. propensity to consume
-# 2) Alternative ocupation how? and how useful?
-# 2) Incorporate slack how?
-
-# Insights
-# 1) In simulation most recipients are employed low productivity households. Might explain why effect on other hh is just as much 
-
-print(df_t['Unemployment'])
-
-print(f" Treated firm: {len([agent for agent in model.treated_agents if agent.firm != None])}")
-print(f" Treaded no firm: {len([agent for agent in model.treated_agents if agent.firm == None])}")
-print(f" Treaded empleyd: {len([agent for agent in model.treated_agents if agent.employer != None])}")
-print(f" Treaded unemployed: {len([agent for agent in model.treated_agents if  agent.employer == None])}")
-print(f" Treaded productivity: {np.mean([agent.productivity for agent in model.treated_agents])}")
-print(f" Total average productivity: {np.mean([agent.productivity for agent in model.all_agents])}")

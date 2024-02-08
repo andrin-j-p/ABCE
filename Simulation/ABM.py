@@ -1,12 +1,13 @@
 import mesa
 import numpy as np
-from read_data import create_agent_data
+from read_data import create_agent_data, is_in_area
 from Datacollector import Datacollector
 from Intervention_Handler import Intervention_handler
 import timeit
 import pstats
 import cProfile
 import random
+
 
 #@TODO
 # make village population normally distributed rather than uniform
@@ -23,14 +24,14 @@ class Firm(mesa.Agent):
     self.owner = None
     self.market = market
     self.village = village
-    self.productivity = 1.15
+    self.productivity = 0.975
     # price
     self.price = np.random.uniform(1, 10) # price in current month (initialized randomly)
-    self.marginal_cost = 1# labor is payed its productivity 
-    self.max_price = 11 
+    self.marginal_cost = 1 # labor is payed its productivity 
+    self.max_price = 10 
     self.theta = 0.8 # probability for price change
     self.nu = 0.3 # rate for price change @Calibrate
-    self.phi_l = 0.1 # phi_l * sales = minimal stock @Calibrate
+    self.phi_l = 0.12 # phi_l * sales = minimal stock @Calibrate
     self.phi_u = 1 # phi_u * sales = max stock for @Calibrate
     self.employees = [] 
     # inventory 
@@ -41,7 +42,7 @@ class Firm(mesa.Agent):
     self.sales = 0  # quantity sold this month
     # profit
     self.money = 0
-    self.assets = 200
+    self.assets = 250
     self.profit = 0
     self.revenue = 0
 
@@ -199,9 +200,9 @@ class Agent(mesa.Agent):
   def __init__(self, unique_id, model, village, firm, employer, pos):
     super().__init__(unique_id, model)
     # parameters to be calibrated
-    self.alpha = 0.78 # propensity to consume
-    self.mu = 3.2
-    self.sigma = 0.65
+    self.alpha = 0.81 # propensity to consume
+    self.mu = 3.35
+    self.sigma = 0.7
 
     # initialize geo-related characteristics
     self.village = village
@@ -213,7 +214,7 @@ class Agent(mesa.Agent):
     self.firm = firm 
     self.employer = employer
     self.best_dealers = []
-    self.productivity = 0.6 * float(np.random.lognormal(self.mu, self.sigma, size=1) + 1)
+    self.productivity = float(np.random.lognormal(self.mu, self.sigma, size=1) + 1)
 
     # initialize treatment status
     self.treated = 0
@@ -221,7 +222,7 @@ class Agent(mesa.Agent):
     # initialize consumption related characteristics
     self.market_day = np.random.randint(0, 7) # day the agent goes to market. Note: bounds are included
     self.best_dealer_price = 10 # agent remembers price of best dealer last week
-    self.money = 80 # household liquidity
+    self.money = 100 # household liquidity
     self.demand = 0 
 
   def find_dealer(self):
@@ -293,7 +294,7 @@ class Agent(mesa.Agent):
     """
     # hh step only needs to be executed on market day
     if  (self.model.schedule.steps - self.market_day)%7 == 0:
-      # get the list of best dealers
+      # get the list of best dealers and update self.demand
       best_dealers = self.find_dealer()
       demand = self.demand
 
@@ -405,11 +406,15 @@ class Sugarscepe(mesa.Model):
     self.all_villages = []
     for i in range(len(self.df_vl)):
       mk = random.sample(self.all_markets, k=1)[0]
-      pos = (mk.pos[0] + random.uniform(-0.01, 0.01), # pos is a tuple of shape (lat, lon) as used for continuous_grid in mesa
-             mk.pos[1] + random.uniform(-0.01, 0.01)) 
+      while True:
+        pos = (mk.pos[0] + random.uniform(-0.05, 0.05), # pos is a tuple of shape (lat, lon) as used for continuous_grid in mesa
+               mk.pos[1] + random.uniform(-0.05, 0.05)) 
+        
+        if is_in_area(pos[0], pos[1]) != False:
+          break
       
       # Create village instance and add it to schedule
-      vl = Village(unique_id=f"v_{i}", model=self, pos=mk.pos, county=mk.county, market=mk)
+      vl = Village(unique_id=f"v_{i}", model=self, pos=pos, county=mk.county, market=mk)
       mk.villages.append(vl)
       self.all_villages.append(vl)
       self.schedule.add(vl)
@@ -428,8 +433,8 @@ class Sugarscepe(mesa.Model):
         self.all_firms.append(fm)
         self.schedule.add(fm)
 
-      pos = (vl.pos[0] + random.uniform(-0.0003, 0.0003), # pos is a tuple of shape (lat, lon) as used for continuous_grid in mesa
-             vl.pos[1] + random.uniform(-0.0003, 0.0003)) 
+      pos = (vl.pos[0] + random.uniform(-0.0005, 0.0005), # pos is a tuple of shape (lat, lon) as used for continuous_grid in mesa
+             vl.pos[1] + random.uniform(-0.0005, 0.0005)) 
       
       # Create hh instance
       hh = Agent(unique_id=f"h_{i}", model=self, pos=pos, village=vl, firm=fm, employer=None)
@@ -505,13 +510,13 @@ def run_simulation(steps = 50):
 
 if __name__ == "__main__":
 
-    cProfile.run("run_simulation()", filename="../data/profile_output.txt", sort='cumulative')
+    #cProfile.run("run_simulation()", filename="../data/profile_output.txt", sort='cumulative')
     
     # Create a pstats.Stats object from the profile file
-    profile_stats = pstats.Stats("../data/profile_output.txt")
+    #profile_stats = pstats.Stats("../data/profile_output.txt")
 
     # Sort and print the top N entries with the highest cumulative time
-    profile_stats.strip_dirs().sort_stats('cumulative').print_stats(20)
+    #profile_stats.strip_dirs().sort_stats('cumulative').print_stats(20)
     #run_simulation()
     print('')
 
