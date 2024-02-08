@@ -1,5 +1,4 @@
 import json
-import pandas as pd
 import numpy as np
 import plotly.express as px
 import dash
@@ -10,23 +9,17 @@ import ABM
 from read_data import read_dataframe, create_geojson
 import plotly.graph_objects as go
 from Datacollector import Validation_collector2
-
+import plotly.figure_factory as ff
 
 # @TODO
 # add selection widget for village in graph plot
-# draw village selected in map
-# create sankey plot with trade volume (how useful?)
-# only run model when update on step number
 # add more info on node hover
-# add 3D plot
-# Preload the model
 
-def create_line(x, df, title, ylabel):
+def create_line1(x, df, title, ylabel):
     """
     Type:        Helper function 
     Description: Creates line plot objects used in callback
     """
-
     y_upper = df[f'{ylabel}_Upper'].tolist()
     y_lower = df[f'{ylabel}_Lower'].tolist()
     y = df[f'{ylabel}'].tolist()
@@ -50,33 +43,78 @@ def create_line(x, df, title, ylabel):
         )
     ])
 
+    fig.update_layout(
+        title=title,
+        xaxis_title='X Axis',
+        yaxis_title='Y Axis',
+        width=2000,
+        height=1000,
+    )
+    
+
     return fig
 
-    # create figure object
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=x, y=df[f'{ylabel}'], mode='lines'))  # Use 'lines' mode for a line plot
-    fig.add_trace(go.Scatter(
-    x=x+x[::-1],
-    y=df[f'{ylabel}_Lower'] + df[f'{ylabel}_Upper'],
-    fill='toself',
-    fillcolor='rgba(0,176,246,0.2)',
-    line_color='rgba(255,255,255,0)',
-    name='Premium',
-    showlegend=False,
-))
-    fig.update_layout(title=f'Average Daily {title}', xaxis_title='Step', yaxis_title=f'{ylabel}', 
-                      width=1000,    
-                      height=500,
-                      xaxis=dict(showgrid=False, zeroline=False, showticklabels=True),
-                      yaxis=dict(showgrid=False, zeroline=True, showticklabels=True))
+
+def create_line2(df_t, df_c, title, ylabel):
+    """
+    Type:        Helper function 
+    Description: Plots two lines on the same plot.
+    """
+    df_t = df_t.tail(20)
+    df_c = df_c.tail(20)
+    # Create traces for the two lines
+    trace1 = go.Scatter(x=df_t['step'], y=df_t[ylabel], mode='lines', name=f'Treated {ylabel}', line=dict(color='rgba(0,100,80,1)'))
+    trace2 = go.Scatter(x=df_c['step'], y=df_c[ylabel], mode='lines', name=f'Control {ylabel}', line=dict(color='rgba(0,40,100,1)'))
+
+    # Create data array with both traces
+    data = [trace1, trace2]
+
+    # Create layout
+    layout = go.Layout(
+        title=title,
+        xaxis=dict(title='week'),
+        yaxis=dict(title=f'{ylabel}'),
+        showlegend=True,
+        width=2000,
+        height=1000,
+    )
+
+    # Create figure
+    fig = go.Figure(data=data, layout=layout)
+
+    return fig
+
+
+def create_dist(df, title, ylabel):
+    """
+    Type:        Helper function 
+    Description: Plots density curve from an array and colors the area under the curve.
+    """
+    y = df[f'{ylabel}']
+    # Create a density plot
+    fig = ff.create_distplot([y], ['Density'], show_hist=False, colors=['rgba(0,40,100,0.2)'])
+
+    # Color the area under the curve
+    for data in fig.data:
+        if 'x' in data:
+            data['fill'] = 'tozeroy'  # Color area under curve
+
+    # Update layout
+    fig.update_layout(
+        title=title, 
+        xaxis_title='Value', 
+        yaxis_title='Density',
+        width=2000,
+        height=1000,
+        )
 
     return fig
 
 def create_circle_coordinates(N, radius):
     """
-    Type: Helper function 
+    Type:        Helper function 
     Description: Return N coordinates evenly dispersed around a circle
-    Used in: visualize.py create_subgraph 
+    Used in:     visualize.py create_subgraph 
     """
     assert N > 1
 
@@ -96,9 +134,9 @@ def create_circle_coordinates(N, radius):
 
 def create_subgraph_G1(G, in_village_nodes):
     """
-    Type: Helper function 
+    Type:        Helper function 
     Description: Creates a subgraph of G including all the nodes connected to the list of specified nodes
-    Used in: visualize.py callback
+    Used in:     visualize.py callback
     """
     # Iterate through the specified nodes and collect their neighbors
     out_village_nodes = set()
@@ -162,10 +200,8 @@ def create_G1(G, node_adjacancies, node_text):
             ),
             line_width=2))
         
-        
     trace_nodes.marker.color = node_adjacancies
     trace_nodes.text = node_text
-
 
     edge_x = []
     edge_y = []
@@ -279,11 +315,16 @@ def create_G2(G, node_adjacencies, node_text):
 
 # update number of agents to be displayed
 # Instantiate the model
-steps = 100
-model = ABM.Sugarscepe()
-model.datacollector = Validation_collector2(model)
-model.run_simulation(steps)
+steps = 500
+model_t = ABM.Sugarscepe()
+model_t.intervention_handler.control = False
+model_t.datacollector = Validation_collector2(model_t)
+model_t.run_simulation(steps)
 
+model_c = ABM.Sugarscepe()
+model_c.intervention_handler.control = True
+model_c.datacollector = Validation_collector2(model_c)
+model_c.run_simulation(steps)
 
 #start dash application
 app = dash.Dash(__name__)
@@ -326,17 +367,25 @@ app.layout = html.Div([
                 ),
 
     html.Div([
-    #scatters
     dcc.Graph(id='ABM_scatter1', figure={}),
     dcc.Graph(id='ABM_scatter2', figure={}),
+    ], style={'display': 'flex', 'flex-direction': 'row'}),
+
+    html.Br(),
+
+    html.Div([
     dcc.Graph(id='ABM_scatter3', figure={}),
     dcc.Graph(id='ABM_scatter4', figure={}),
-    dcc.Graph(id='ABM_scatter5', figure={}),
+    ], style={'display': 'flex', 'flex-direction': 'row'}),
+        html.Br(),
 
+    html.Div([
+    dcc.Graph(id='ABM_scatter5', figure={}),
+    dcc.Graph(id='ABM_scatter6', figure={}),
     ], style={'display': 'flex', 'flex-direction': 'row'})
+
   ]
 )
-
 
 
 """
@@ -356,7 +405,8 @@ Comment:     Two outputs: one goes into 'ABM_map' one into 'output' container.
      Output(component_id='ABM_scatter2', component_property='figure'),
      Output(component_id='ABM_scatter3', component_property='figure'),
      Output(component_id='ABM_scatter4', component_property='figure'),
-     Output(component_id='ABM_scatter5', component_property='figure')],
+     Output(component_id='ABM_scatter5', component_property='figure'),
+     Output(component_id='ABM_scatter6', component_property='figure'),],
      Input(component_id='slct_range', component_property='value')
 )
 
@@ -364,19 +414,20 @@ Comment:     Two outputs: one goes into 'ABM_map' one into 'output' container.
 def update_graph(option_slctd):
     # displays the option selected
     container = f"Outcome of Interest: {option_slctd}"
-    mapbox_data, sm_data = model.datacollector.get_data()
+    mapbox_data, sm_data_t = model_t.datacollector.get_data()
+    mapbox_data['size'] = 20
+    _ , sm_data_c = model_c.datacollector.get_data()
 
     # Create copies of the dataframes
     # @ change: negative numbers cannot be put as size
-    sm_data['Income'] = sm_data['Income'].apply(lambda x: 0 if x < 0 else x)
+    sm_data_t['Income'] = sm_data_t['Income'].apply(lambda x: 0 if x < 0 else x)
 
     ## Create Scatter Mapbox
     
     # creates the scatter map and superimposes the county borders where the experiment took place
-    fig1 = px.scatter_mapbox(mapbox_data, lat="lat", lon="lon", color="Money", size="Income", animation_frame="step", animation_group="unique_id", 
+    fig1 = px.scatter_mapbox(mapbox_data, lat="lat", lon="lon", color="Money", size="size", animation_frame="step", animation_group="unique_id", 
                              custom_data=[], color_continuous_scale=px.colors.cyclical.IceFire, height=1000, size_max=20, 
                              hover_data=['Village', 'Income'])
-    fig1.update_traces(marker=dict(size=15))
 
     fig1.update_layout(
         # superimpose the boundries of the study area
@@ -398,28 +449,15 @@ def update_graph(option_slctd):
         width=4000  # Adjust the height parameter as per your requirement
     )
 
-    fig1.add_trace(
-        go.Scattermapbox(
-            name='flow1',
-            lon = [134.340916, -3.704239],
-            lat = [-25.039402, 40.415887],
-            mode = 'lines',
-            line = dict(width = 8,color = 'green')
-        )
-)
-
     fig1.update_traces(visible=True)
 
     ## Create Graph Plot
-    
-    # @TODO make a widget to specify the data for the graph (select village)
-    #       add comments
-    
+        
     # initialize a graph object
     G = nx.Graph()
 
     # create a list of all agents in the model
-    agents_lst = model.all_agents
+    agents_lst = model_t.all_agents
     # create a node for each agent in the model 
     all_nodes = [(agent.unique_id, {'village': agent.village.unique_id, 
                                     'pos': (np.random.uniform(-1,1),np.random.uniform(-1,1),np.random.uniform(-1,1))}) 
@@ -429,7 +467,7 @@ def update_graph(option_slctd):
     G.add_nodes_from(all_nodes)
 
     # for all agents, add an edges for each of its trading partners
-    for agent in model.all_agents:  
+    for agent in model_t.all_agents:  
         for firm in agent.best_dealers:
             G.add_edge(agent.unique_id, firm.owner.unique_id)
 
@@ -443,35 +481,19 @@ def update_graph(option_slctd):
     fig2 = create_G1(G1, node_adjacencies, node_text)
 
     ## Create Scatter Plots
-    x = [i for i in range(len(sm_data))]
+    x = [i for i in range(len(sm_data_t))]
 
     # Average price
-    fig4 = create_line(x, sm_data, 'Average Daily Price', 'Expenditure')
-    fig5 = create_line(x, sm_data, 'Average Daily Price', option_slctd)
-    fig6 = create_line(x, sm_data, 'Average Daily Price', 'Expenditure')
-    fig7 = create_line(x, sm_data, 'Average Daily Price', 'Expenditure')
-    fig8 = create_line(x, sm_data, 'Average Daily Price', 'Expenditure')
+    fig4 = create_line1(x, sm_data_t, f'Average Daily {option_slctd} Treatment', option_slctd)
+    fig5 = create_line1(x, sm_data_c, f'Average Daily {option_slctd} Control', option_slctd)
+    fig6 = create_dist(model_t.datacollector.hh_df, f'{option_slctd} Distribution Treatment', option_slctd)
+    fig7 = create_dist(model_c.datacollector.hh_df, f'{option_slctd} Distribution Control', option_slctd)
+    fig8 = create_line2(sm_data_t, sm_data_c, 'Average Daily Price', f'{option_slctd}_Recipient')
+    fig9 = create_line2(sm_data_t, sm_data_c, 'Average Daily Price', f'{option_slctd}_Nonrecipient')
 
-    # Average employment
-    #fig6 = create_line(x, sm_data, 'Average Daily Employees', 'Money')
-#
-    ## Average income 
-    #fig7 = create_line(x, sm_data, 'Daily Trade Volume', 'Income')
-#
-    ## Average profit
-    #fig8 = create_line(x, sm_data, 'Average Income', 'Profit')
-#
-    ## Average expenditure
-    #fig8 = create_line(x, sm_data, 'Average Income', 'Assets')
-#
-    ## Average revenue
-    #fig5 = create_line(x, sm_data, 'Average Daily Inventory', 'Revenue')
-
-    return container, fig1, fig2, fig3, fig4, fig5, fig6, fig7, fig8, 
+    return container, fig1, fig2, fig3, fig4, fig5, fig6, fig7, fig8, fig9
 
 
 if __name__ =='__main__':
-
-
     app.run_server(debug=False)
 

@@ -124,7 +124,7 @@ class Intervention_handler():
     # declare the stack for 3 phase treatment rollout
     self.UCT_1 = create_list_partition(self.treated_agents)
 
-    #print(f"# treated hhs: {len(self.treated_agents)}, # treated vls: {len(treatment_villages)}")
+    print(f"# treated hhs: {len(self.treated_agents)}, # treated vls: {len(treatment_villages)}")
 
 
   def intervention(self, amount, agents):

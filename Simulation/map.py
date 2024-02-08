@@ -1,79 +1,77 @@
 import json
 import pandas as pd
-import numpy as np
 import plotly.express as px
-import dash
-import math
-import networkx as nx
-from dash import dcc, html, Input, Output
 import ABM
-from read_data import read_dataframe, create_geojson
+from read_data import read_dataframe
 import plotly.graph_objects as go
-import pickle
-
-#start dash application
-app = dash.Dash(__name__)
-
-# Create GeoJSON. Only needs to be executed once to construct the file
-create_geojson(exectute=False)
-
 
 # Load GeoJSON data
 file_name = read_dataframe("filtered_ken.json", retval="file")
 polygons = json.load(open(file_name, "r"))
 
-# define app layout see https://www.youtube.com/watch?v=hSPmj7mK6ng&t=1187s
-app.layout = html.Div([
-    # Title
-    html.H1("ABCE", style={"textAlign":"center"}),
-
-    html.Div(id='output_container', children=[]),
-    html.Br(),
-
-    dcc.Graph(id='ABM_map', figure={}),
-  ]
-)
-
-"""
-Type:        Callback Function
-Description: Updates information displayed if automatically triggered by an event
-Comment:     Two outputs: one goes into 'ABM_map' one into 'output' container.
-             Component id is the reference to which tage the output goes. the component property is where the output goes within the tag.
-
-            One Input:obtained from html with id slct_range. I.p. value
-"""
-@app.callback(
-    [Output(component_id='output_container', component_property='children'),
-     Output(component_id='ABM_map', component_property='figure')],
-    [Input(component_id='slct_range', component_property='value')]
-
-)
-
 # automatically takes the Input value as argument. If there are two inputs there are two arguments in update_graph
-def update_graph(option_slctd):
-    container = f"Number of steps: {option_slctd}"
-
+def create_map():
+    # run the simulation until treatment status is asigned
     model = ABM.Sugarscepe()
-    model.run_simulation(1)
+    model.run_simulation(365)
 
-    village_location = [vl.pos for vl in model.all_villages]
-    df_vl = pd.DataFrame(village_location, columns=['lat', 'lon'])
-    df_vl['trated'] = [vl.treated for vl in model.all_villages]
-    df_vl['size'] = 1
-    print(df_vl.head(5))
+    # get village data and treatment status
+    data_vl = [(vl.unique_id, vl.pos[0], vl.pos[1], vl.treated, 25)  for vl in model.all_villages]
+    df_vl = pd.DataFrame(data_vl, columns=['village_id','lat', 'lon', 'treated', 'size'])
+
+    # get market data
+    data_mk = [(mk.unique_id, mk.pos[0], mk.pos[1], 'rgb(100,0,0,1)', 25)  for mk in model.all_markets]
+    df_mk = pd.DataFrame(data_mk, columns=['market_id','lat', 'lon', 'color', 'size'])
 
     # creates the scatter map and superimposes the county borders where the experiment took place
-    fig1 = px.scatter_mapbox(df_vl, lat="lat", lon="lon", color="treated", size="size", animation_frame="step", animation_group="unique_id", 
-                             custom_data=[], color_continuous_scale=px.colors.cyclical.IceFire, height=1000, size_max=20, 
-                             hover_data=['village_id', 'income'])
-    
-    fig1.update_traces(marker=dict(size=15))
+    fig = px.scatter_mapbox(df_mk, lat="lat", lon="lon", color="color", size='size', height=5000, width=7000, size_max=0.0001)
 
-    fig1.update_layout(
+    # Adding trace for treatment 
+    fig.add_trace(go.Scattermapbox(
+        lat=df_vl[df_vl['treated'] == 1]['lat'],
+        lon=df_vl[df_vl['treated'] == 1]['lon'],
+        mode='markers',
+        marker=go.scattermapbox.Marker(
+            size=30,  
+            color='rgba(0,0,80, 1)', 
+            opacity=1  
+        ),
+        name='Red Dots' 
+    ))
+
+    # Adding trace for control villages
+    fig.add_trace(go.Scattermapbox(
+        lat=df_vl[df_vl['treated'] == 0]['lat'],
+        lon=df_vl[df_vl['treated'] == 0]['lon'],
+        mode='markers',
+        marker=go.scattermapbox.Marker(
+            size=30,  
+            color='rgba(0,0,80, 0.2)', 
+            opacity=1  
+        ),
+        name='Red Dots' 
+    ))
+
+    # Adding trace for market
+    fig.add_trace(go.Scattermapbox(
+        lat=df_mk['lat'],
+        lon=df_mk['lon'],
+        mode='markers',
+        marker=go.scattermapbox.Marker(
+            size=50,  
+            color='red', 
+            opacity=1  
+        ),
+        name='Red Dots' 
+    ))
+
+
+    # Adding trace for study area boundary
+    fig.update_layout(
         # superimpose the boundries of the study area
         mapbox={
             "style": "carto-positron",
-            "zoom": 11,
+            "zoom": 12,
             "layers": [
                 {
                     "source": polygons,
@@ -87,20 +85,9 @@ def update_graph(option_slctd):
         margin={"l": 0, "r": 0, "t": 0, "b": 0},
     )
 
-    fig1.add_trace(
-        go.Scattermapbox(
-            name='flow1',
-            lon = [134.340916, -3.704239],
-            lat = [-25.039402, 40.415887],
-            mode = 'lines',
-            line = dict(width = 8,color = 'green')
-        )
-    )
 
-    fig1.update_traces(visible=True)
+    fig.update_traces(visible=True)
     
-    return container, fig1
+    fig.show()
 
-
-if __name__ =='__main__':
-    app.run_server(debug=True)
+create_map()

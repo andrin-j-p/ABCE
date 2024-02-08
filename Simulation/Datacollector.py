@@ -251,7 +251,7 @@ class Validation_collector2():
     self.td_data = []
     
     #Just collect weekly data
-    if self.model.schedule.steps % 10 != 0:
+    if self.model.schedule.steps % 7 != 0:
       return
     
 ### HH data
@@ -333,6 +333,6 @@ class Validation_collector2():
     return 
   
   def get_data(self):
-    return   pd.concat(self.map_data, axis=0), pd.DataFrame(self.data)
+    return  pd.concat(self.map_data, axis=0), pd.DataFrame(self.data)
 
 

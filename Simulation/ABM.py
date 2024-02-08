@@ -1,12 +1,13 @@
 import mesa
 import numpy as np
-from read_data import create_agent_data
+from read_data import create_agent_data, is_in_area
 from Datacollector import Datacollector
 from Intervention_Handler import Intervention_handler
 import timeit
 import pstats
 import cProfile
 import random
+
 
 #@TODO
 # make village population normally distributed rather than uniform
@@ -200,8 +201,8 @@ class Agent(mesa.Agent):
     super().__init__(unique_id, model)
     # parameters to be calibrated
     self.alpha = 0.81 # propensity to consume
-    self.mu = 3.
-    self.sigma = 1.3
+    self.mu = 3.35
+    self.sigma = 0.7
 
     # initialize geo-related characteristics
     self.village = village
@@ -293,7 +294,7 @@ class Agent(mesa.Agent):
     """
     # hh step only needs to be executed on market day
     if  (self.model.schedule.steps - self.market_day)%7 == 0:
-      # get the list of best dealers
+      # get the list of best dealers and update self.demand
       best_dealers = self.find_dealer()
       demand = self.demand
 
@@ -405,8 +406,12 @@ class Sugarscepe(mesa.Model):
     self.all_villages = []
     for i in range(len(self.df_vl)):
       mk = random.sample(self.all_markets, k=1)[0]
-      pos = (mk.pos[0] + random.uniform(-0.1, 0.1), # pos is a tuple of shape (lat, lon) as used for continuous_grid in mesa
-             mk.pos[1] + random.uniform(-0.1, 0.1)) 
+      while True:
+        pos = (mk.pos[0] + random.uniform(-0.05, 0.05), # pos is a tuple of shape (lat, lon) as used for continuous_grid in mesa
+               mk.pos[1] + random.uniform(-0.05, 0.05)) 
+        
+        if is_in_area(pos[0], pos[1]) != False:
+          break
       
       # Create village instance and add it to schedule
       vl = Village(unique_id=f"v_{i}", model=self, pos=pos, county=mk.county, market=mk)
@@ -428,8 +433,8 @@ class Sugarscepe(mesa.Model):
         self.all_firms.append(fm)
         self.schedule.add(fm)
 
-      pos = (vl.pos[0] + random.uniform(-0.0003, 0.0003), # pos is a tuple of shape (lat, lon) as used for continuous_grid in mesa
-             vl.pos[1] + random.uniform(-0.0003, 0.0003)) 
+      pos = (vl.pos[0] + random.uniform(-0.0005, 0.0005), # pos is a tuple of shape (lat, lon) as used for continuous_grid in mesa
+             vl.pos[1] + random.uniform(-0.0005, 0.0005)) 
       
       # Create hh instance
       hh = Agent(unique_id=f"h_{i}", model=self, pos=pos, village=vl, firm=fm, employer=None)

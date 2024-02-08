@@ -6,19 +6,10 @@ from shapely.geometry import Point, shape
 import warnings
 import geopandas as gpd
 
-#@TODO only take columns actually needed in ABM
-#      replace '' and "" consistent
-#      pickle this
+# @replace '' and "" consistent
 
 # to supress runtime warning
 warnings.simplefilter(action='ignore', category=pd.errors.PerformanceWarning)
-
-# @DELETE set display options. Not imperative for exectution
-pd.set_option('display.max_columns', 10)
-pd.set_option('display.max_rows', None)
-pd.set_option('expand_frame_repr', False)
-pd.set_option('display.width', 10000)
-
 
 def read_dataframe(file_name, retval="df"):
     """
@@ -50,7 +41,35 @@ def read_dataframe(file_name, retval="df"):
     
     else:
        raise ValueError('The arg "retval" in read_dtaframe is invalid (use df or file)')
-    
+
+# Load GeoJSON file containing sectors
+file_path = read_dataframe("filtered_ken.json", retval="file")
+with open(file_path) as f:
+  js = json.load(f)
+
+def is_in_area(pos_lat, pos_lon):
+  """
+  Type:         Helper function 
+  Description:  Checks if the provided point is within the study area 
+  Used in:      read_data.py and Sugarscepe.py 
+  """
+  point = Point(pos_lon, pos_lat)
+  
+  # to prevent people from drowning
+  if 0.03 <= pos_lat <= 0.08 and 34 <= pos_lon <= 34.18:
+    return False
+
+  # check every constituent polygon to see if it contains the point
+  for feature in js['features']:
+      polygon = shape(feature['geometry'])
+
+      # if the coordinates are within the study area add it to the lists
+      if polygon.contains(point):
+        county = feature["properties"]["NAME_3"]
+        return county
+  
+  return False
+
 
 def create_random_coor(N):
   """
@@ -58,37 +77,29 @@ def create_random_coor(N):
   Description:  generates N random coordintes in the study area 
   Used in:      Sugarscepe.py to create village and markets at random locations
   """
-  # Load GeoJSON file containing sectors
-  file_path = read_dataframe("filtered_ken.json", retval="file")
-  with open(file_path) as f:
-      js = json.load(f)
-
   # create random coordinates and check if they are within the study area 
   # do this until N coordinates are created
   count = 0
   lon = []
   lat = []
-  county = []
+  counties = []
   while count < N:
     # construct point based on lon/lat of the study area
-    pot_lat = np.random.uniform(-0.0407, 0.2463)
-    pot_lon = np.random.uniform(34.1223, 34.3808)
-    point = Point(pot_lon, pot_lat)
+    pos_lat = np.random.uniform(-0.0407, 0.2463)
+    pos_lon = np.random.uniform(34.1223, 34.3808)
 
     # check every constituent polygon to see if it contains the point
-    for feature in js['features']:
-        polygon = shape(feature['geometry'])
+    # if the coordinates are within the study area add it to the lists
+    county = is_in_area(pos_lat, pos_lon)
+    if county != False:
+      lon.append(pos_lon)
+      lat.append(pos_lat)
+      
+      # Extract county name from json object and add it to list
+      counties.append(county)
+      count += 1
 
-        # if the coordinates are within the study area add it to the lists
-        if polygon.contains(point):
-            lon.append(pot_lon)
-            lat.append(pot_lat)
-
-            # Extract county name from json object and add it to list
-            county.append(feature["properties"]["NAME_3"])
-            count += 1
-
-  return list(zip(lat, lon)), county
+  return list(zip(lat, lon)), counties
 
    
 def create_agent_data():
@@ -112,12 +123,6 @@ def create_agent_data():
     df_hh  = df_hh.drop(df_hh[df_hh['hhid_key'].isin(['601010103003-144', '601020404002-039', '601050304006-038'])].index)
     
 ### Market Data
-
-    # load market data
-    #df_mk = read_dataframe("GE_MarketData_Panel_ProductLevel_ECMA.dta", "df")
-
-    # drop 1 market (109) without firm and hh affiliation
-    #df_mk = df_mk.drop(df_mk[df_mk['market_id'] ==109].index)
 
     # for markets add randomly created geo-data
     mk_pos, county = create_random_coor(61)

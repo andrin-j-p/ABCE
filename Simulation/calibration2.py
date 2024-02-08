@@ -12,7 +12,6 @@ import timeit
 import arviz as az
 import dill
 from read_data import read_dataframe
-import math
 
 # Parameters to be calibrated
 #====================================
@@ -23,9 +22,10 @@ import math
 # alpha: cobb douglas demand parameter
 # shape: parameter for gamma distribution (employee productivity)
 # scale: parameter for gamme distribution (employee productivity)
+
 data = {'Type': ['fm', 'fm', 'fm', 'fm', 'hh', 'hh', 'hh'], 
         'Name': ['theta',     'nu',      'phi_l',    'phi_u',   'alpha', 'mu', 'sigma'],
-        'Bounds': [(0,1), (0.05, 0.5), (0, 0.5), (0.5, 1.5), (0,1), (3, 4), (0.5, 1)]} 
+        'Bounds': [(0,1), (0.05, 0.5), (0, 0.5), (0.5, 1.5), (0,1), (3, 4), (0.2, 1)]} 
   
 # Convert the paramters into a pandas DataFrame 
 df_para = pd.DataFrame(data) 
