@@ -9,7 +9,6 @@ from matplotlib import pyplot as plt
 np.random.seed(0) 
 random.seed(0)
 
-
 """
 Type:         Main function 
 Description:  Runs the Simulation and saves the output data 

@@ -58,7 +58,7 @@ class TestReadData(unittest.TestCase):
 # Import the functionalities from the 'Sugarsim.py' folder
 from Simulation import ABM
 
-class Testsim(ABM.Sugarscepe):
+class Testsim(ABM.Model):
   """
   Type:         Child Class Sugarscape
   Description:  Mock model instance for testing. 

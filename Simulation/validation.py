@@ -1,147 +1,522 @@
 #%%
 import numpy as np
 from matplotlib import pyplot as plt
-import ABM
+from matplotlib.lines import Line2D
+from ABM import Model 
 from read_data import read_dataframe
-from Datacollector import Sparse_collector, Datacollector, Validation_collector
+from datacollector import Validation_collector
+from intervention_handler import Intervention_handler2
 import arviz as az
-import pandas as pd
+import matplotlib.patches as mpatches
 import seaborn as sns
-import statsmodels.stats.api as sms
 import random
-import math
+
 np.random.seed(0) 
 random.seed(0)
 
-# @DELETE set display options. Not imperative for exectution
-pd.set_option('display.max_columns', 30)
-pd.set_option('display.max_rows', None)
-pd.set_option('expand_frame_repr', False)
-pd.set_option('display.width', 10000)
-
-class Model(ABM.Sugarscepe):
-  """
-  Type:        Child Class Sugarscepe
-  Description: Implements the following additional functionality imperative for the calibration process:
-              - sparse data collecter for faster execution
-  """
-  def __init__(self):
-    super().__init__()
-    self.datacollector = Sparse_collector(self) #Validation_collector(self)#
-    self.data = []
-
-
-steps = 1000
+steps = 360
 model_c = Model()
 model_c.datacollector = Validation_collector(model_c)
 model_c.intervention_handler.control = True
 model_c.run_simulation(steps)
-df_sm_c, df_hh_c, df_fm_c  = model_c.datacollector.get_data()
+data_md_c = model_c.datacollector.get_data()
+data_fm_c = model_c.datacollector.fm_df
+data_hh_c = model_c.datacollector.hh_df
+#%%
+"""
+State of the economy before intervention:
+- Expenditure
+- Income
+- Assets
+- Profit
+- Revenue
+
+- Firm size
+"""    
+
+def compare_histograms(data_o, data_c):
+  bins = np.arange(1, 17)
+  density_o, _ = np.histogram(data_o, bins=bins, density=True)
+  density_c, _ = np.histogram(data_c, bins=bins, density=True)
+
+  fig, ax = plt.subplots()  
+  pos = np.arange(15)
+  wid = 0.3
+  plt.bar(pos,  density_c, width=wid, color='#579eb1' , label='Simulated')
+  plt.bar(pos + wid, density_o, width=wid, color='#52C290', label='Observed')
+
+  # Add labels, title, legend, etc.
+  ax.set_ylabel("")
+  ax.set_xlabel("Value")
+  ax.set_title(f"Number of Firm Employees")
+  ax.legend()
+  plt.xticks(pos + wid / 2, [i for i in range(1,16)])
+  plt.show()
+
+
+def calibration_dist(data_true, data_sim):
+  """
+  Type:        Function 
+  Description: Compare two distributions  
+  """
+  # set arviz display style
+  az.style.use("arviz-doc")
+
+  # Crate plot
+  fig, ax = plt.subplots()
+  az.plot_dist(data_sim, ax=ax, label="Simulated", color='#579eb1', rug=True,  rug_kwargs={'color': '#579eb1', 'space':0.2}, fill_kwargs={'alpha': 1})
+  az.plot_dist(data_true, ax=ax, label="Observed", color='#52C290', rug = True, rug_kwargs={'color': '#52C290', 'space':0.1}, fill_kwargs={'alpha': 0.7})
+  
+  # Add labels, title, legend, etc.
+  ax.set_ylabel("Density")
+  ax.set_xlabel("Household Expenditures")
+  ax.set_title(f"Observed vs. Simulated Expenditures")
+  ax.legend()
+
+  # Show the plot
+  plt.xlim(0, 200)
+  
+  plt.savefig('calibration.png', dpi=700, bbox_inches='tight')    
+
+  plt.show()
+
+
+def plot_dist(data, title, limit, ax=None, color='blue', xlabel='', ylabel=''):
+    if ax is None:
+        fig, ax = plt.subplots()
+    
+    az.plot_dist(data, ax=ax, rug=False, color=color, fill_kwargs={'alpha': 1})
+    ax.set_ylabel(f"{ylabel}")
+    ax.set_xlabel(f"{xlabel}")
+    ax.set_title(f"{title}")
+    ax.set_xlim(limit[0], limit[1])
+
+
+def compare_dist(datasets, titles, limits):
+    fig, axes = plt.subplots(2, 5, figsize=(30, 10))  # Correctly note it's a 2x5 grid
+    axes = axes.flatten()
+    
+    legend_handles = []
+    legend_labels = []
+
+    for i, (ax, data, title, limit) in enumerate(zip(axes, datasets, titles, limits)):
+        row = i // 5  # Determines the row based on index
+        color = '#579eb1' if row == 0 else '#52C290'
+        ylabel = '' if i % 5 != 0 else 'Density'  # Adjust for a 2x5 grid
+        xlabel = title
+        modified_title = title + ' Simulated' if row == 0 else title + ' Observed'
+        
+        # Assuming plot_dist is a function you've defined elsewhere
+        plot_dist(data, modified_title, limit, ax=ax, color=color, xlabel=xlabel, ylabel=ylabel)
+        
+        # Set title with larger font size
+        ax.set_title(modified_title, fontsize=16)  # Increase fontsize as needed
+        ax.set_xlabel(xlabel, fontsize=14)  # Increase fontsize for x-axis title
+        ax.set_ylabel(ylabel, fontsize=14) 
+        # Remove the top and right spines
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+    
+    legend_handles.extend([mpatches.Patch(color='#579eb1'), mpatches.Patch(color='#52C290')])
+    legend_labels.extend(['Simulated', 'Observed'])
+
+    # Increase space between the first and second row
+    fig.subplots_adjust(hspace=0.5)  
+
+    fig.legend(legend_handles, legend_labels, loc='upper center', bbox_to_anchor=(0.5, 0), ncol=2, frameon=False, fontsize='x-large')
+
+    plt.savefig('pre_intervention.png', dpi=700, bbox_inches='tight')    
+
+    plt.show()
+
+
+
+def clean_data(data):
+  data.replace(0.00, np.nan, inplace=True)  
+  data.dropna(inplace=True)  
+  return data
+
+
+data_hh_o = read_dataframe("GE_HH-Survey-BL_Analysis_AllHHs.dta", "df")
+data_fm_o = read_dataframe("GE_ENT-Survey-BL_Analysis_ECMA.dta", "df")
+
+#Expenditure
+expenditure_o = read_dataframe("GE_HHLevel_ECMA.dta", "df")['p2_consumption_PPP']/52
+expenditure_c = data_hh_c['Expenditure']
+
+#Assets 
+money_o = data_hh_o['p1_assets_trim_PPP_BL']*0.1
+money_c = data_hh_c[data_hh_c['Assets']>1]['Assets']
+
+#Income
+income_o = data_hh_o['emp_income']/520*1.781
+income_o = clean_data(income_o)
+income_c = data_hh_c[data_hh_c['Income']>=1]['Income']
+
+# Revenue
+revenue_o = read_dataframe("GE_Enterprise_ECMA.dta", "df")
+revenue_o = revenue_o[(revenue_o['treat'] == 0) & (revenue_o['hi_sat'] == 0)]
+revenue_o = revenue_o['ent_revenue1_wins_PPP']/52
+revenue_o = clean_data(revenue_o)
+revenue_c = data_fm_c[data_fm_c['Revenue']>1]['Revenue']
+
+#Profit
+profit_o = read_dataframe("GE_Enterprise_ECMA.dta", "df")
+profit_o = profit_o[(profit_o['treat'] == 0) & (profit_o['hi_sat'] == 0)]
+profit_o = profit_o['ent_profit2_wins_PPP']/52
+profit_c = data_fm_c[data_fm_c['Profit']>1]['Profit']
+
+
+datasets = [expenditure_c, money_c, income_c, revenue_c, profit_c, expenditure_o, money_o, income_o, revenue_o, profit_o] 
+
+titles = ["Expenditure", "Assets", "Income", "Revenue", "Profit", "Expenditure", "Assets", "Income", "Revenue", "Profit"]
+
+limits = [(1, 200), (1, 300), (1, 150), (1,500), (1,300), (0, 200), (1, 300), (1, 150), (1,30), (0,20)]  
+
+compare_dist(datasets, titles, limits)
+
+#%%
+# Get calibration outcome
+y = read_dataframe("GE_HHLevel_ECMA.dta", "df")
+expenditure_o = y[(y['hi_sat']==0) & (y['treat'] == 0)]['p2_consumption_PPP'].dropna().values/52
+expenditure_c = data_hh_c[data_hh_c['Expenditure'] > 1]['Expenditure']
+
+calibration_dist(expenditure_o, expenditure_c)
+
+#%%
+# Number Employees
+df = read_dataframe("GE_Enterprise_ECMA.dta", "df")
+df.dropna(subset=['emp_n_tot'], inplace=True)
+df = df[df['emp_n_tot'].apply(lambda x: 0 < x <= 15)]
+employees_o = df['emp_n_tot']
+
+df_sm_c_EL = data_fm_c[data_fm_c['Employees'].apply(lambda x: 0 < x <= 15)]
+employees_c = df_sm_c_EL['Employees']
+
+compare_histograms(employees_o, employees_c)
+
+# Market Clearing
+print(f"Demand Satisfied: {data_md_c[data_md_c['step'] == 51]['Demand_Satisfied'].values[0]}")
+
+
+#%%
+#DELETE
+import numpy as np
+from matplotlib import pyplot as plt
+from matplotlib.lines import Line2D
+from ABM import Model 
+from read_data import read_dataframe
+from datacollector import Validation_collector
+import arviz as az
+import pandas as pd
+import seaborn as sns
+import random
+
+steps = 1000
 
 np.random.seed(0) 
 random.seed(0)
 
-model = Model()
-model.datacollector = Validation_collector(model)
-model.intervention_handler.control = False
-model.run_simulation(steps)
-df_sm_t, df_hh_t, df_fm_t = model.datacollector.get_data()
+model_c = Model()
+model_c.datacollector = Validation_collector(model_c)
+model_c.intervention_handler.control = True
+model_c.run_simulation(steps)
+df_hh_c = model_c.datacollector.hh_df
+df_sm_c = model_c.datacollector.get_data()
 
-def create_lineplots(df_t, df_c, variables):
-        
-    # Loop through each variable and plot on a separate subplot
+np.random.seed(0) 
+random.seed(0)
+
+model_t = Model()
+model_t.datacollector = Validation_collector(model_t)
+model_t.intervention_handler.control = False
+model_t.run_simulation(steps)
+df_hh_t = model_t.datacollector.hh_df
+df_sm_t = model_t.datacollector.get_data()
+
+#%%
+"""
+Calculates main intervention outcomes:
+- Overall Statistics (Number HH, FM etc.)
+- Expenditure
+- Money
+- Income
+- Revenue
+- Profit
+- Price 
+- Unemployment
+"""
+
+def create_lineplots(df_t, df_c):
+    variables = ['Expenditure', 'Assets', 'Income', 'Revenue', 'Profit', 'Unemployment']
+
+    # Create a 2x3 grid of subplots
+    fig, axes = plt.subplots(2, 3, figsize=(25, 10))  # Adjust figsize as needed
+    axes = axes.flatten()  # Flatten the 2D array of axes for easy iteration
+
+    # Variables to store legend handles and labels
+    legend_handles, legend_labels = [], []
+
     for i, var in enumerate(variables):
-      fig, ax = plt.subplots()
+        ax = axes[i]
 
-      sns.lineplot(data=df_c, x='step', y=var, label='Control', color='#52C290', ax=ax)
-      sns.lineplot(data=df_t, x='step', y=var, label='Treated', color='#2C72A6', ax=ax)
-        
-      # Add a vertical line at x=52
-      ax.axvline(x=52, color='red', linestyle='--')
-        
-      # Set plot labels and title for the current subplot
-      ax.set_xlabel('Step')
-      ax.set_ylabel(var)
-      ax.set_title(f"Comparison {var} Treatment vs. Control")
-        
-      # Add legend to the current subplot
-      ax.legend()
-    
-      # Show plot
-      plt.show()
+        # Plot control and treated data on the current subplot axis
+        sns.lineplot(data=df_c, x='step', y=var, label='Counterfactual', color='#52C290', ax=ax, legend=False)
+        sns.lineplot(data=df_t, x='step', y=var, label='Intervention', color='#2C72A6', ax=ax, legend=False)
 
-variables = df_sm_t.columns[1:]
-create_lineplots(df_sm_t, df_sm_c, variables)
+        # Add a vertical line at x=52
+        ax.axvline(x=52, color='red', linestyle='--')
 
-df_t = df_sm_t[df_sm_t['step'] == 142] 
-df_c = df_sm_c[df_sm_c['step'] == 142] 
+        # Set plot labels and title
+        ax.set_xlabel('Week', fontsize=14)
+        ax.set_ylabel(var, fontsize=14)
+        ax.set_title(f"{var}", fontsize=16)
 
-#%%
-converstion = 52
+        # If it's the first iteration, capture the legend handles and labels
+        if i == 0:
+            handles, labels = ax.get_legend_handles_labels()
+            # Create a custom legend handle for the vertical line
+            red_line_handle = Line2D([0], [0], color='red', linestyle='--', label='Time of UCT')
+            # Add them to the list of handles and labels
+            handles.extend([red_line_handle])           
+            labels.extend(['Time of UCT'])
+            legend_handles.extend(handles)
+            legend_labels.extend(labels)
+
+    # Create a single legend for the entire figure using the handles and labels captured
+    fig.legend(legend_handles, legend_labels, loc='upper center', bbox_to_anchor=(0.5, 0), ncol=3, frameon=False, fontsize='x-large')
+
+    # Adjust layout for better spacing
+
+    plt.tight_layout()  # Adjust the rect if legend overlaps with subplots
+    fig.subplots_adjust(hspace=0.5) 
+
+    # Show plot
+    plt.savefig('post_intervention.png', dpi=700, bbox_inches='tight')
+    plt.show()
+
+
+create_lineplots(df_sm_t, df_sm_c)
+
+
+# From here on, only observation 18 months after intervention are used
+df_sm_t_EL = df_sm_t[df_sm_t['step'] == 142] 
+df_sm_c_EL = df_sm_c[df_sm_c['step'] == 142] 
+
+conversion = 52
 print(f"               {'Recipients': >13}{'Nonrecipinets':>13}{'Control':>13}")
-print(f"HH expenditure {round(float(df_t['Expenditure_Recipient']-df_c['Expenditure_Recipient'])*converstion, 2): >13}{round(float(df_t['Expenditure_Nonrecipient'] - df_c['Expenditure_Nonrecipient'])*converstion, 2) : >13}{round(float(df_c['Expenditure'])*converstion,2) :>13}")
-print(f"HH money       {round(float(df_t['Money_Recipient']-df_c['Money_Recipient']), 2): >13}{                   round(float(df_t['Money_Nonrecipient'] - df_c['Money_Nonrecipient']), 2 ) : >13}{                round(float(df_c['Money']),2):>13}")
-print(f"HH income      {round(float(df_t['Income_Recipient']-df_c['Income_Recipient'])*converstion, 2) : >13}{         round(float(df_t['Income_Nonrecipient'] - df_c['Income_Nonrecipient'] )*converstion,2): >13}{           round(float(df_c['Income'])*converstion,2) :>13}")
-print(f"FM profit      {round(float(df_t['Profit_Recipient']-df_c['Profit_Recipient'])*converstion, 2) : >13}{         round(float(df_t['Profit_Nonrecipient'] - df_c['Profit_Nonrecipient'])*converstion,2) : >13}{           round(float(df_c['Profit'])*converstion,2) :>13}")
-print(f"FM assets      {round(float(df_t['Assets_Recipient']-df_c['Assets_Recipient']), 2): >13}{                round(float(df_t['Assets_Nonrecipient'] - df_c['Assets_Nonrecipient']),2 ) : >13}{                round(float(df_c['Assets']),2):>13}")
-print(f"FM revenue     {round(float(df_t['Revenue_Recipient']-df_c['Revenue_Recipient'])*converstion, 2): >13}{        round(float(df_t['Revenue_Nonrecipient'] - df_c['Revenue_Nonrecipient'])*converstion,2): >13}{          round(float(df_c['Revenue'])*converstion,2) :>13}")
-print(f"FM inventory   {round(float(df_t['Stock_Recipient']-df_c['Stock_Recipient']), 2): >13}{                        round(float(df_t['Stock_Nonrecipient'] - df_c['Stock_Nonrecipient']),2): >13}{                          round(float(df_c['Stock']),2) :>13}")
-
-print(f"Expenditure Recipient: {converstion* np.mean([hh.demand for hh in model.all_agents if hh.treated == 1])}")
-print(f"Expenditure Non recipient: {converstion* np.mean([hh.demand for hh in model.all_agents if hh.treated == 0])}")
-
-print(f"Expenditure Firm: {converstion* np.mean([hh.demand for hh in model.all_agents if hh.firm != None])}")
-print(f"Expenditure No Firm: {converstion* np.mean([hh.demand for hh in model.all_agents if hh.firm == None])}")
-print(f"Unemployment T: {df_t['Unemployment']}")
-print(f"Unemployment C: {df_c['Unemployment']}")
-print(F"Price T: {np.mean([fm.price for fm in model.all_firms])}")
-print(F"Price C: {np.mean([fm.price for fm in model_c.all_firms])}")
-
-print(F"Productivity R: {np.mean([hh.productivity for hh in model.all_agents if hh.treated == 1])}")
-print(F"Productivity NR: {np.mean([hh.productivity for hh in model.all_agents if hh.treated == 0])}")
-
-print(F"Firm R: {np.mean([1 if hh.treated == 1 and hh.firm!= None else 0 for hh in model.all_agents ])}")
-print(F"Firm NR: {np.mean([1 if hh.treated == 0 and hh.firm!= None else 0 for hh in model.all_agents ])}")
-
-
-def compare_dist(data_o, data_c , title, lim):
-  az.style.use("arviz-doc")
-
-  fig, ax = plt.subplots()
-  az.plot_dist(data_o, ax=ax, label="Observed", rug = True, rug_kwargs={'space':0.1}, fill_kwargs={'alpha': 0.7})
-  az.plot_dist(data_c, ax=ax, label="Simulated", color='red', rug=True,  rug_kwargs={'space':0.2}, fill_kwargs={'alpha': 0.7})
-  
-  # Add labels, title, legend, etc.
-  ax.set_ylabel("Density")
-  ax.set_xlabel("Value")
-  ax.set_title(f"Kernel Density Comparision True and Simulated {title}")
-  ax.legend()
-
-  # Show the plot
-  plt.xlim(lim[0], lim[1])
-  plt.show()
-
-
-data_o = read_dataframe("GE_HHLevel_ECMA.dta", "df")
-data_o = data_o[(data_o['hi_sat']==0) & (data_o['treat'] == 0)]['p2_consumption_PPP']/52
-
-df_hh = model.datacollector.hh_df
-data_c = df_hh[(df_hh['Saturation'] == 0) & (df_hh['Treated'] == 0)]['Expenditure']
+print(f"HH Expenditure {round(float(df_sm_t_EL['Expenditure_Recipient']-df_sm_c_EL['Expenditure_Recipient'])*conversion , 2): >13}{round(float(df_sm_t_EL['Expenditure_Nonrecipient'] - df_sm_c_EL['Expenditure_Nonrecipient'])*conversion , 2) : >13}{round(float(df_sm_c_EL['Expenditure'])*conversion ,2) :>13}")
+print(f"HH Assets      {round(float(df_sm_t_EL['Assets_Recipient']-df_sm_c_EL['Assets_Recipient']), 2): >13}{                        round(float(df_sm_t_EL['Assets_Nonrecipient'] - df_sm_c_EL['Assets_Nonrecipient']), 2 ) : >13}{                       round(float(df_sm_c_EL['Assets']),2):>13}")
+print(f"HH Income      {round(float(df_sm_t_EL['Income_Recipient']-df_sm_c_EL['Income_Recipient'])*conversion , 2) : >13}{         round(float(df_sm_t_EL['Income_Nonrecipient'] - df_sm_c_EL['Income_Nonrecipient'] )*conversion ,2): >13}{           round(float(df_sm_c_EL['Income'])*conversion ,2) :>13}")
+print(f"FM Profit      {round(float(df_sm_t_EL['Profit_Recipient']-df_sm_c_EL['Profit_Recipient'])*conversion , 2) : >13}{         round(float(df_sm_t_EL['Profit_Nonrecipient'] - df_sm_c_EL['Profit_Nonrecipient'])*conversion ,2) : >13}{           round(float(df_sm_c_EL['Profit'])*conversion ,2) :>13}")
+print(f"FM Revenue     {round(float(df_sm_t_EL['Revenue_Recipient']-df_sm_c_EL['Revenue_Recipient'])*conversion , 2): >13}{        round(float(df_sm_t_EL['Revenue_Nonrecipient'] - df_sm_c_EL['Revenue_Nonrecipient'])*conversion ,2): >13}{          round(float(df_sm_c_EL['Revenue'])*conversion ,2) :>13}")
+print(f"FM Margin      {round(float(df_sm_t_EL['Profit_Recipient']/df_sm_t_EL['Revenue_Recipient']- df_sm_c_EL['Profit_Recipient']/df_sm_c_EL['Revenue_Recipient']) , 2): >13}{round(float(df_sm_t_EL['Profit_Nonrecipient']/df_sm_t_EL['Revenue_Nonrecipient']- df_sm_c_EL['Profit_Nonrecipient']/df_sm_c_EL['Revenue_Nonrecipient']) ,2): >13}{round(float(df_sm_c_EL['Profit']/df_sm_c_EL['Revenue']),2) :>13}")
 
 #%%
-print(data_c.mean())
-print(math.sqrt(data_c.var()))
+# Statistics for treatment illustration 
+low_saturation_hh = [hh for hh in model_t.all_agents if hh.village.market.saturation == 0]
+high_saturation_hh = [hh for hh in model_t.all_agents if hh.village.market.saturation == 1]
+
+low_saturation_vl = [vl for vl in model_t.all_villages if vl.market.saturation == 0]
+high_saturation_vl = [vl for vl in model_t.all_villages if vl.market.saturation == 1]
+
+print(f'Number HH: {len(model_t.all_agents)}')
+print(f'Number FM: {len(model_t.all_firms)}')
+print(f'Number VL: {len(model_t.all_villages)}')
+print(f'Number MK: {len(model_t.all_markets)}')
+
+print(f'Number HH LS-Market Total: {len(low_saturation_hh)}')
+print(f'Number HH HS-Market Total: {len(high_saturation_hh)}')
+print(f'Number HH HS-Market Treated: {len([hh for hh in high_saturation_hh if hh.treated == 1])}')
+print(f'Number HH HS-Market Control: {len([hh for hh in high_saturation_hh if hh.treated == 0])}')
+print(f'Number HH LS-Market Treated: {len([hh for hh in low_saturation_hh if hh.treated == 1])}')
+print(f'Number HH LS-Market Control: {len([hh for hh in low_saturation_hh if hh.treated == 0])}')
+
+print(f'Number VL LS-Market Total: {len(low_saturation_vl)}')
+print(f'Number VL HS-Market Total: {len(high_saturation_vl)}')
+print(f'Number VL HS-Market Treated: {len([vl for vl in high_saturation_vl if vl.treated == 1])}')
+print(f'Number VL HS-Market Control: {len([vl for vl in high_saturation_vl if vl.treated == 0])}')
+print(f'Number VL LS-Market Treated: {len([vl for vl in low_saturation_vl if vl.treated == 1])}')
+print(f'Number VL LS-Market Control: {len([vl for vl in low_saturation_vl if vl.treated == 0])}')
+
+ #%%
+"""
+Calculate other intervention outcomes:
+- Inflation 
+- Unemployment
+- Gini
+- Multiplier 
+"""
 
 
-compare_dist(data_o, data_c, 'Expenditure Density', (0,100))
+### Unemployment
+
+unemployment_t = float(df_sm_t_EL['Unemployment'].iloc[0])
+unemployment_c = float(df_sm_c_EL['Unemployment'].iloc[0])
+print(f"Unemployment T: {unemployment_t}")
+print(f"Unemployment C: {unemployment_c}")
+print(f"Change Unemployment Simulated: {(unemployment_c - unemployment_t) * 100}%")
+
+### Inflation 
+
+# Calculate change in inflation
+price_c = df_sm_c_EL['Price'].mean()
+price_t = df_sm_t_EL['Price'].mean()
+
+print(F"Change Inflation {price_t - price_c}")
+
+
+### Gini
+
+# Function to calculate Gini coefficient
+def gini(x):
+    total = 0
+    for i, xi in enumerate(x[:-1], 1):
+        total += np.sum(np.abs(xi - x[i:]))
+    return total / (len(x)**2 * np.mean(x))
+
+# Calculate the Gini coefficient in treatment villages
+incomes_c = df_hh_c[df_hh_c['Village'] == 1]['Expenditure']
+incomes_t = df_hh_t[df_hh_t['Village'] == 1]['Expenditure']
+
+# Calculate change in treatment village Gini Coefficient 
+print(f'Change Treated Village GINI: {gini(incomes_t) - gini(incomes_c)}')
+
+
+### Multiplier
+
+def multiplier(GDP_t, GDP_c):
+  dif_GDP = (GDP_t - GDP_c)* len(model_c.all_agents) 
+  transfer_size = len(model_t.intervention_handler.treated_agents)*1000
+  multiplier = (1/transfer_size) * dif_GDP
+  return multiplier
+
+
+expenditure_t = df_sm_t_EL['Expenditure'].values[0] * 116
+expenditure_c = df_sm_c_EL['Expenditure'].values[0] * 116
+stock_t = df_sm_t_EL['Stock'].values[0]
+stock_c = df_sm_c_EL['Stock'].values[0]
+print(stock_t)
+print(stock_c)
+GDP_t = expenditure_t + stock_t 
+GDP_c = expenditure_c + stock_c
+
+print(f"Multiplier: {multiplier(GDP_t, GDP_c)}")
+
 
 #%%
+model_t = Model()
+model_t.datacollector = Validation_collector(model_t)
+model_t.intervention_handler.control = False
+model_t.run_simulation(150)
+df_hh_t = model_t.datacollector.hh_df
+df_sm_t = model_t.datacollector.get_data()
+#%%
+
+def multiplier2(delta_GDP):
+  transfer_size = len(model_t.intervention_handler.treated_agents)*1000
+  multiplier = (1/transfer_size) * delta_GDP
+  return multiplier
+
+# Consumption (all expenditures fall on consumption)
+expenditure = np.array(df_sm_t['Expenditure'].tail(116))*52.2
+expenditure = np.diff(expenditure)
+expenditure = np.cumsum(expenditure)
+expenditure = expenditure[-1] * len(model_t.all_agents)
+
+# Investment (the only form of investment are changes in inventory)
+stock = np.array(df_sm_t['Stock'].tail(116))
+stock = np.diff(stock)
+stock = np.cumsum(stock)[-1] * len(model_t.all_firms)
+
+delta_GDP = expenditure + stock
+print(multiplier2(delta_GDP))
+
+
+### Spillovers
+#%%
+# Spillovers to eligible (i.e. poor) non-recipient households
+print(f"Spillover to elligible: {(df_hh_t[(df_hh_t['Eligible'] == 1)  & (df_hh_t['Treated'] == 0)]['Income'].mean() - df_hh_c[(df_hh_c['Eligible'] == 1) & (df_hh_c['Treated'] == 0)]['Income'].mean()) * conversion}")
+# Spiillovers to ineligible (i.e. rich) non-recipient households
+print(f"Spillover to inelligible: {(df_hh_t[(df_hh_t['Eligible'] == 0)  & (df_hh_t['Treated'] == 0)]['Income'].mean() - df_hh_c[(df_hh_c['Eligible'] == 0)  & (df_hh_c['Treated'] == 0)]['Income'].mean()) * conversion}")
+
+# Spillovers to ineligible households in control villages (across village spillover)
+print(f"Intra-village Spillover: {(df_hh_t[(df_hh_t['Eligible'] == 0) & (df_hh_t['Village'] == 0)]['Income'].mean() - df_hh_c[(df_hh_c['Eligible'] == 0) & (df_hh_c['Village'] == 0)]['Income'].mean()) * conversion}")
+# Spillovers to ineligible households in treatment villages (intra village spillover)
+print(f"Inter-village Spillover: {(df_hh_t[(df_hh_t['Eligible'] == 0) & (df_hh_t['Village'] == 1)]['Income'].mean() - df_hh_c[(df_hh_c['Eligible'] == 0) & (df_hh_c['Village'] == 1)]['Income'].mean()) * conversion}")
+
+
+### Long term impact
+#%%
+
+### Long term impact
+model_t.run_simulation(2000)
+df_sm_t = model_t.datacollector.get_data()
+
+print(df_sm_t[df_sm_t['step'] ==  52]['Expenditure'])
+print(df_sm_t[df_sm_t['step'] == 142]['Expenditure'])
+print(df_sm_t[df_sm_t['step'] == 200]['Expenditure'])
+print(df_sm_t[df_sm_t['step'] == 260]['Expenditure'] )
+print(df_sm_t[df_sm_t['step'] == 400]['Expenditure'] )
+#%%
+import numpy as np
+from matplotlib import pyplot as plt
+from matplotlib.lines import Line2D
+from ABM import Model 
+from read_data import read_dataframe
+from datacollector import Validation_collector
+from intervention_handler import Intervention_handler2
+import arviz as az
+import pandas as pd
+import seaborn as sns
+import random
+
+
+steps = 1000
+
+np.random.seed(0) 
+random.seed(0)
+
+model_c = Model()
+model_c.datacollector = Validation_collector(model_c)
+model_c.intervention_handler = Intervention_handler2(model_c)
+model_c.intervention_handler.control = True
+model_c.run_simulation(steps)
+df_hh_c = model_c.datacollector.hh_df
+df_sm_c = model_c.datacollector.get_data()
+
+np.random.seed(0) 
+random.seed(0)
+
+model_t = Model()
+model_t.datacollector = Validation_collector(model_t)
+model_t.intervention_handler = Intervention_handler2(model_t)
+model_t.intervention_handler.control = False
+model_t.run_simulation(steps)
+df_hh_t = model_t.datacollector.hh_df
+df_sm_t = model_t.datacollector.get_data()
+
+
+# Function to calculate Gini coefficient
+def gini(x):
+    total = 0
+    for i, xi in enumerate(x[:-1], 1):
+        total += np.sum(np.abs(xi - x[i:]))
+    return total / (len(x)**2 * np.mean(x))
+
+
+# Calculate the Gini coefficient in treatment villages
+incomes_c = df_hh_c[df_hh_c['Village'] == 1]['Expenditure']
+incomes_t = df_hh_t[df_hh_t['Village'] == 1]['Expenditure']
+
+# Calculate change in treatment village Gini Coefficient 
+print(f'Change Treated Village GINI: {gini(incomes_t) - gini(incomes_c)}')
+
 # Questions
 # OK 1) How does intervention group look like? mostly firm owners? -> mostly employed workers with low productivity
 # 2) Why dip in treated after token
 # 3) Why demand/income/ money increases more for control
 # 4) how does benefit differ firm owner and employees
-# OK 4) Why only token permanent effect? It does not, it is due to split into rich and poor 
 
 # Explenations
 # 2) got unemployed recently not yet at rock bottom (plausible if treated mostly workers)
@@ -162,113 +537,5 @@ compare_dist(data_o, data_c, 'Expenditure Density', (0,100))
 # Insights
 # 1) In simulation most recipients are employed low productivity households. Might explain why effect on other hh is just as much 
 
-print(df_t['Unemployment'])
 
-print(f" Treated firm: {len([agent for agent in model.treated_agents if agent.firm != None])}")
-print(f" Treaded no firm: {len([agent for agent in model.treated_agents if agent.firm == None])}")
-print(f" Treaded empleyd: {len([agent for agent in model.treated_agents if agent.employer != None])}")
-print(f" Treaded unemployed: {len([agent for agent in model.treated_agents if  agent.employer == None])}")
-print(f" Treaded productivity: {np.mean([agent.productivity for agent in model.treated_agents])}")
-print(f" Total average productivity: {np.mean([agent.productivity for agent in model.all_agents])}")
-
-
-from linearmodels import PanelOLS
-
-def calculate_ATE(df_c, df_t, var):
-  # Calculate the treatment effect (difference in means)
-  treatment_effect = df_t[var] - df_c[var]
-  treatment_effect = np.array(treatment_effect)
-    
-  # Calculate the ATE (Average Treatment Effect)
-  ATE = treatment_effect.mean()
-  
-  grouped = df.groupby(cluster_var)
-  
-  # Step 2: Compute group-wise means and variances
-  means = grouped[var].mean()
-  variances = grouped[var].var()
-  
-  # Step 3: Combine variances to compute clustered standard errors
-  # Compute the cluster-robust variance estimator
-  cluster_variance = variances.mean()
-  
-  # Compute clustered standard errors
-  clustered_SE = np.sqrt(cluster_variance)
-  
-  return clustered_SE
-
-hh_df_recipient_t = df_hh_t[df_hh_t['Treated'] == 1]
-hh_df_non_recipient_t = df_hh_t[df_hh_t['Treated'] == 0]                              
-fm_df_recipient_t = df_fm_t[df_fm_t['Treated'] == 1]
-fm_df_non_recipient_t = df_fm_t[df_fm_t['Treated'] == 0]
-
-hh_df_recipient_c = df_hh_c[df_hh_c['Treated'] == 1]
-hh_df_non_recipient_c = df_hh_c[df_hh_c['Treated'] == 0]                               
-fm_df_recipient_c = df_fm_c[df_fm_c['Treated'] == 1]
-fm_df_non_recipient_c = df_fm_c[df_fm_c['Treated'] == 0]
-
-
-data = df_sm_c[df_sm_c['step'] == 52] 
-
-
-#%%
-def plot_dist(data, title, limit):
-  az.style.use("arviz-doc")
-
-  fig, ax = plt.subplots()
-  az.plot_dist(data, ax=ax, label="Observed Data", rug = True, fill_kwargs={'alpha': 0.7}, rug_kwargs={'space':0.1})
-  
-  # Add labels, title, legend, etc.
-  ax.set_ylabel("Density")
-  ax.set_xlabel("Value")
-  ax.set_title(f"Kernel Density {title}")
-  ax.legend()
-  plt.xlim(limit[0], limit[1])
-
-  # Show the plot
-  plt.tight_layout()
-  plt.show()
-
-
-def compare_dist(data_o, data_c , title, lim):
-  az.style.use("arviz-doc")
-
-  fig, ax = plt.subplots()
-  az.plot_dist(data_o, ax=ax, label="Observed", rug = True, rug_kwargs={'space':0.1}, fill_kwargs={'alpha': 0.7})
-  az.plot_dist(data_c, ax=ax, label="Simulated", color='red', rug=True,  rug_kwargs={'space':0.2}, fill_kwargs={'alpha': 0.7})
-  
-  # Add labels, title, legend, etc.
-  ax.set_ylabel("Density")
-  ax.set_xlabel("Value")
-  ax.set_title(f"Kernel Density Comparision True and Simulated {title}")
-  ax.legend()
-
-  # Show the plot
-  plt.xlim(lim[0], lim[1])
-  plt.show()
-
-# instantiate the model and run it for 1000 burn-in periods
-model = Model()
-model.datacollector = Sparse_collector(model)
-model.run_simulation(360)
-
-
-# get simulated data
-df_sm, df_hh, df_fm, df_md, df_td = model.datacollector.get_calibration_data()
-
-print(np.mean(df_hh['demand']))
-print(np.mean(df_hh['money']))
-
-# plot distributions
-#plot_dist(df_hh['demand'].values, 'Expenditure', (0, 500))
-#plot_dist(df_hh['money'].values, 'Money', (-50, 1000))
-#plot_dist(df_hh['income'].values, 'Income', (-50, 300))
-#plot_dist(df_fm['revenue'].values, 'Revenue', (0, 200))
-#plot_dist(df_fm['profit'].values, 'Profit', (-200, 200))
-#plot_dist(df_fm['assets'].values, 'Assets', (-500, 2000))
-#plot_dist(df_fm['stock'].values, 'Stock', (0, 2000))
-
-
-data_o = read_dataframe("GE_HHLevel_ECMA.dta", "df")['p2_consumption_PPP']/52
-data_c = df_hh['demand']
-compare_dist(data_o, data_c, 'Expenditure Density', (0,100))
+# %%

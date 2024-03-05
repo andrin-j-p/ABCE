@@ -1,13 +1,12 @@
 import mesa
 import numpy as np
 from read_data import create_agent_data, is_in_area
-from Datacollector import Datacollector
-from Intervention_Handler import Intervention_handler
+from datacollector import Datacollector
+from intervention_handler import Intervention_handler
 import timeit
 import pstats
 import cProfile
 import random
-
 
 #@TODO
 # make village population normally distributed rather than uniform
@@ -20,34 +19,34 @@ class Firm(mesa.Agent):
     super().__init__(unique_id, model)
 
     # firm properties
-    self.id = unique_id
-    self.owner = None
-    self.market = market
-    self.village = village
-    self.productivity = 0.975
+    self.id = unique_id       # used for for mesa.schedule
+    self.owner = None         # househoold owning the firm
+    self.market = market      # market the firm operates on 
+    self.village = village    # village of owner
+    self.productivity = 0.975 # firm idiosyncratic productivity factor
     # price
     self.price = np.random.uniform(1, 10) # price in current month (initialized randomly)
-    self.marginal_cost = 1 # labor is payed its productivity 
-    self.max_price = 10 
-    self.theta = 0.8 # probability for price change
-    self.nu = 0.3 # rate for price change @Calibrate
-    self.phi_l = 0.12 # phi_l * sales = minimal stock @Calibrate
-    self.phi_u = 1 # phi_u * sales = max stock for @Calibrate
-    self.employees = [] 
+    self.marginal_cost = 1 # labor is payed its marginal product
+    self.max_price = 10    # upper bound for price setting function 
+    self.theta = 0.8       # probability for price change
+    self.nu = 0.3          # rate for price change 
+    self.phi_l = 0.15       # 10% percent of last week's sales 
+    self.phi_u = 1         # 100% percent of last week's sales 
+    self.employees = []    # to keep track of currently employed workers
     # inventory 
-    self.min_stock = 0 # 10% percent of last months sales 
-    self.max_stock = 0 # 150% percent of last months sales 
-    self.stock = 300
-    self.output = 0 # quantity produced this month
-    self.sales = 0  # quantity sold this month
+    self.min_stock = 0 # minimal stock  = phi_l * sales = 
+    self.max_stock = 0 # max stock = phi_u * sales 
+    self.stock = 300   # current inventory
+    self.output = 0    # quantity produced this month
+    self.sales = 0     # quantity sold this month
     # profit
-    self.money = 0
-    self.assets = 250
-    self.profit = 0
-    self.revenue = 0
+    self.money = 0    # liquid assets
+    self.assets = 250 # illiquid assets
+    self.profit = 0   # weekly profit
+    self.revenue = 0  # weekly revenues
+    # wage @DELETE
+    self.wage_bill = 0
 
-    #@DELETE
-    self.costumers = []
 
   def set_price(self):
     """
@@ -120,14 +119,17 @@ class Firm(mesa.Agent):
     Description: Pay wages and distribute the remaining profits
     """
     # Pay wages based on the employees productivity 
+    self.wage_bill = 0
     for employee in self.employees:
-      #@Implement
-      # productivity is observed imperfectly. Wages are thus fluctuating 10% above and below actual productivity
+      # Pay wages 
       wage = employee.productivity
-
       self.money -= wage
       employee.money += wage
       employee.income = wage 
+
+      # Collect data on wage payments
+      self.wage_bill += wage
+
 
     # Pay owner based on profits
     self.profit = self.money
@@ -183,7 +185,7 @@ class Firm(mesa.Agent):
       # set the min_stock to the sales of previous month
       self.min_stock = self.sales * self.phi_l
       self.max_stock = self.sales * self.phi_u 
-      # reset sales and output for this month to zero
+      # reset sales and output for this week to zero
       self.sales = 0
       self.output = 0
       # set output level for this month
@@ -218,11 +220,12 @@ class Agent(mesa.Agent):
 
     # initialize treatment status
     self.treated = 0
+    self.eligible = 0
 
     # initialize consumption related characteristics
     self.market_day = np.random.randint(0, 7) # day the agent goes to market. Note: bounds are included
     self.best_dealer_price = 10 # agent remembers price of best dealer last week
-    self.money = 100 # household liquidity
+    self.money = 100            # household liquidity
     self.demand = 0 
 
   def find_dealer(self):
@@ -280,8 +283,6 @@ class Agent(mesa.Agent):
     dealer.stock -= amount
     dealer.sales += amount
     dealer.money += total_price 
-    #@DELETE
-    dealer.costumers.append(self)
     
     # save the transaction details in the model data collector
     self.model.datacollector.td_data.append({"step": self.model.schedule.steps, "parties": (self.unique_id, dealer.owner.unique_id), 
@@ -361,14 +362,13 @@ class Market(mesa.Agent):
      return f'Market: {self.unique_id} in county: {self.county}'
 
 
-class Sugarscepe(mesa.Model):
+class Model(mesa.Model):
   """
   Type:         Mesa model class
   Description:  Main simulation class
   """
   def __init__(self, min_lat=-0.05 , max_lat=0.25, min_lon=34.00, max_lon=34.5, N=65383):
-    print('init was called')
-    super().__init__(seed=0)
+    super().__init__()
 
     # confine the geographic space of the grid to the study area
     self.x_min = min_lat
@@ -494,22 +494,7 @@ class Sugarscepe(mesa.Model):
   def __repr__(self):
     return f'N Households: {len(self.all_agents)} \nN Firms: {len(self.all_firms)} \nN Villages: {len(self.all_villages)}\nN Markets: {len(self.all_markets)}'
 
-
-def run_simulation(steps = 50):
-
-  model = Sugarscepe()
-  model.run_simulation(steps)
-  print(model)
-  hh_data, fm_data, md_data, _ = model.datacollector.get_data()
-  print(md_data[['average_stock', 'unemployment_rate', 'average_income', 'average_price', 
-                'trade_volume', 'no_worker_found', 'no_dealer_found', 'worker_fired', ]].head(steps))
-  
-    
-  return model
-
-
 if __name__ == "__main__":
-
     #cProfile.run("run_simulation()", filename="../data/profile_output.txt", sort='cumulative')
     
     # Create a pstats.Stats object from the profile file

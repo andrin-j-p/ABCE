@@ -16,9 +16,9 @@ pd.set_option('expand_frame_repr', False)
 pd.set_option('display.width', 10000)
 #%%
 
-itr = pd.read_stata('../data/raw_data/GE_HH-SampleMaster_PUBLIC.dta', iterator=True)
+itr = pd.read_stata('../data/raw_data/GE_HH-EL_hhlaborsupply.dta', iterator=True)
 dct = itr.variable_labels()
-f = open("GE_HH-SampleMaster_PUBLIC.txt", "w")
+f = open("GE_HH-EL_hhlaborsupply.txt", "w")
 f.write("{\n")
 for k in dct.keys():
     f.write("'{}':'{}'\n".format(k, dct[k]))
