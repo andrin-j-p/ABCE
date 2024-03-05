@@ -2,6 +2,8 @@
 __pycache__/
 *.pyc
 *.pyo
-data/
+/data/
 data/output_data
 data/output_data/model_output.pkl
+data/model_data
+C:\Users\andri\OneDrive\UNI\Semester 13\Thesis\Sugarsim\data
