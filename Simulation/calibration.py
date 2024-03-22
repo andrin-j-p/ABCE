@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt
 import pandas as pd
 from scipy.stats import qmc, wasserstein_distance
 import ABM
-from datacollector import Sparse_collector, Validation_collector
+from datacollector import Sparse_collector
 import timeit
 import arviz as az
 import dill
@@ -19,6 +19,7 @@ random.seed(0)
 
 # Parameters to be calibrated
 #====================================
+# lambda:firm productivity
 # theta: probability for price change
 # nu   : rate for price change
 # phi_l: lower inventory rate 
@@ -29,7 +30,7 @@ random.seed(0)
 
 data = {'Type': ['fm', 'fm', 'fm', 'fm', 'fm', 'hh', 'hh', 'hh'], 
         'Name': [ 'productivity',  'theta',   'nu',      'phi_l',    'hi_u', 'alpha',    'mu',   'sigma'],
-        'Bounds': [(0.5, 1.5),     (0.5,1), (0.05, 0.5),  (0, 0.5), (0.5, 1.5), (0,1), (2.5, 3.5), (0.5, 1.5)]} 
+        'Bounds': [(0.5, 1.5),    (0.5,1), (0.05, 0.5),  (0, 0.5), (0.5, 1), (0,0.9), (3, 4), (0.2, 1)]} 
   
 # Convert the paramters into a pandas DataFrame 
 df_para = pd.DataFrame(data) 
@@ -184,15 +185,23 @@ def rejection_abc(data_loader, y):
   """
   # for each theta, predict the x vectors using the surrogate and calculate the corresponding mse
   best_guess = (0, 0, 10000)
+  total_sample = []
   for theta, x in data_loader:
     x = np.squeeze(x.numpy())
     theta = np.squeeze(theta.numpy())
     wd = wasserstein_distance(list(x), list(y))
 
-    if wd < best_guess[2]:
-      best_guess = (theta, x, wd)
+    sample = (theta, x, wd)
 
-  return best_guess
+    if wd < best_guess[2]:
+      best_guess = sample
+
+    total_sample.append(sample)
+
+  # Sort all samples based on the wasserstein distance loss and retain the best 10%
+  final_sample = sorted(total_sample, key=lambda sample : sample[2])[:12]
+
+  return best_guess, final_sample
 
 
 def compare_dist(data_true, data_sim):
@@ -218,45 +227,56 @@ def compare_dist(data_true, data_sim):
   plt.xlim(0, 200)
   plt.show()
 
-# Get dataloader object
+# Construct dataloader object
 data_loader = create_dataloader(model_runs=7, model_steps=1000, batch_size=1, model_r=1, load=True)
 
 # Get ovserved expenditure data for validation 
 y = read_dataframe("GE_HHLevel_ECMA.dta", "df")
-
 y = y[(y['hi_sat']==0) & (y['treat'] == 0)]['p2_consumption_PPP'].dropna().values/52
 
-# Conduct Basian inference and get best guess of the parameter values
-best_guess = rejection_abc(data_loader, y)
+# Conduct Bayesian inference and get best guess of the parameter values
+best_guess, final_sample = rejection_abc(data_loader, y)
 x = best_guess[1]
-#%%
-print(x)
+
 compare_dist(y, x)
 print(best_guess[0])
-print(0.975, 0.8, 0.3, 0.12, 1, 0.81, 3.35, 0.7)
-parameter_names = df_para['Name'].tolist()
-sample = dict(zip(parameter_names, best_guess[0])) 
+
+def create_boxplots(data_tuples, limits, titles):
+    # Unzip the tuples into separate lists
+    data_lists = list(zip(*data_tuples))
+    
+    # Set up the figure
+    fig, axes = plt.subplots(2, 4, figsize=(30, 15))  # Creates a 2x5 grid of subplots
+    
+    # Flatten the 2D axes array to a 1D array for easier indexing
+    axes_flat = axes.flatten()
+    
+    # Loop through each list (corresponding to tuple elements) to create a boxplot
+    for i, data in enumerate(data_lists):
+        # Use the flattened axes array for indexing
+        ax = axes_flat[i]
+        ax.boxplot(data, medianprops=dict(color='#2C72A6', linewidth=2))
+        ax.set_title(titles[i], pad=45, fontsize=22)
+        if i % 4 == 0:
+            ax.set_ylabel('Parameter Value', fontsize=20, labelpad=20) 
+        ax.set_ylim(limits[i])
+        ax.set_xticklabels([])
 
 
-np.random.seed(0) 
-random.seed(0)
+    plt.tight_layout()  # Adjust the rect if legend overlaps with subplots
+    fig.subplots_adjust(hspace=0.5) 
+    
+    plt.savefig('../data/illustrations/boxplot.png', dpi=700, bbox_inches='tight')
 
-steps = 1000
-model_c = Model()
-model_c.set_parameters(sample)
-model_c.datacollector = Validation_collector(model_c)
-model_c.intervention_handler.control = True
-model_c.run_simulation(steps)
-df_sm_c, df_hh_c, df_fm_c  = model_c.datacollector.get_data()
+    plt.show()
 
-np.random.seed(0) 
-random.seed(0)
+paramter_values = [p[0] for p in final_sample]
+limits = data['Bounds']
+titles = [r'Firm Productivity $\lambda$', r'Probability of Price Change $\theta$', r'Rate of Price Change $\nu$', r'Lower Inventory Rate $\phi_l$', 
+          r'Upper Inventory Rate $\phi_u$', r'Propensity to Consume $\alpha$', r'Household Productivity $\mu$', r'Households Productivity $\sigma$']
 
-model = Model()
-model.set_parameters(sample)
-model.datacollector = Validation_collector(model)
-model.intervention_handler.control = False
-model.run_simulation(steps)
-df_sm_t, df_hh_t, df_fm_t = model.datacollector.get_data()
+create_boxplots(paramter_values, limits, titles)
+
+
 
 # %%

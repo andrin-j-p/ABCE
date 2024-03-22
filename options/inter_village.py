@@ -128,9 +128,9 @@ def create_figure(G, node_adjacencies, node_text):
     fig.show()
 
 steps = 10
-model = ABM.Sugarscepe()
+model = ABM.Model()
 model.run_simulation(steps)
-df_hh, _, _, _= model.datacollector.get_data()
+df_hh, _,= model.datacollector.get_data()
 df_hh = df_hh[df_hh['step'] == steps-1]
 
 G = nx.Graph()
@@ -149,7 +149,6 @@ G.add_nodes_from(all_nodes)
 for village in village_list:   
   for vendor in village.market.vendors:
     G.add_edge(village.unique_id, vendor.owner.village.unique_id)
-
 
 
 # %%

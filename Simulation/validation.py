@@ -39,18 +39,20 @@ def compare_histograms(data_o, data_c):
   density_o, _ = np.histogram(data_o, bins=bins, density=True)
   density_c, _ = np.histogram(data_c, bins=bins, density=True)
 
-  fig, ax = plt.subplots()  
+  # Set the size of the figure
+  fig, ax = plt.subplots(figsize=(10, 6))  # Adjust width and height as needed
   pos = np.arange(15)
   wid = 0.3
-  plt.bar(pos,  density_c, width=wid, color='#579eb1' , label='Simulated')
+  plt.bar(pos, density_c, width=wid, color='#579eb1', label='Simulated')
   plt.bar(pos + wid, density_o, width=wid, color='#52C290', label='Observed')
 
   # Add labels, title, legend, etc.
-  ax.set_ylabel("")
-  ax.set_xlabel("Value")
-  ax.set_title(f"Number of Firm Employees")
+  ax.set_ylabel("Density")
+  ax.set_xlabel("Number of Employees")
+  ax.set_title("Number of Firm Employees")
   ax.legend()
-  plt.xticks(pos + wid / 2, [i for i in range(1,16)])
+  plt.xticks(pos + wid / 2, [i for i in range(1, 16)])
+  plt.savefig('../data/illustrations/firm_size.png', dpi=700, bbox_inches='tight')
   plt.show()
 
 
@@ -76,7 +78,7 @@ def calibration_dist(data_true, data_sim):
   # Show the plot
   plt.xlim(0, 200)
   
-  plt.savefig('calibration.png', dpi=700, bbox_inches='tight')    
+  plt.savefig('../data/illustrations/calibration.png', dpi=700, bbox_inches='tight')    
 
   plt.show()
 
@@ -123,9 +125,9 @@ def compare_dist(datasets, titles, limits):
     # Increase space between the first and second row
     fig.subplots_adjust(hspace=0.5)  
 
-    fig.legend(legend_handles, legend_labels, loc='upper center', bbox_to_anchor=(0.5, 0), ncol=2, frameon=False, fontsize='x-large')
+    fig.legend(legend_handles, legend_labels, loc='upper center', bbox_to_anchor=(0.5, 0), ncol=2, frameon=False, fontsize=16)
 
-    plt.savefig('pre_intervention.png', dpi=700, bbox_inches='tight')    
+    plt.savefig('../data/illustrations/pre_intervention.png', dpi=700, bbox_inches='tight')    
 
     plt.show()
 
@@ -175,7 +177,6 @@ limits = [(1, 200), (1, 300), (1, 150), (1,500), (1,300), (0, 200), (1, 300), (1
 
 compare_dist(datasets, titles, limits)
 
-#%%
 # Get calibration outcome
 y = read_dataframe("GE_HHLevel_ECMA.dta", "df")
 expenditure_o = y[(y['hi_sat']==0) & (y['treat'] == 0)]['p2_consumption_PPP'].dropna().values/52
@@ -183,8 +184,9 @@ expenditure_c = data_hh_c[data_hh_c['Expenditure'] > 1]['Expenditure']
 
 calibration_dist(expenditure_o, expenditure_c)
 
-#%%
-# Number Employees
+
+### Number Employees
+
 df = read_dataframe("GE_Enterprise_ECMA.dta", "df")
 df.dropna(subset=['emp_n_tot'], inplace=True)
 df = df[df['emp_n_tot'].apply(lambda x: 0 < x <= 15)]
@@ -196,7 +198,7 @@ employees_c = df_sm_c_EL['Employees']
 compare_histograms(employees_o, employees_c)
 
 # Market Clearing
-print(f"Demand Satisfied: {data_md_c[data_md_c['step'] == 51]['Demand_Satisfied'].values[0]}")
+print(f"Demand Satisfied: {data_md_c[data_md_c['step'] == 52]['Demand Satisfied'].values[0]}")
 
 
 #%%
@@ -208,7 +210,6 @@ from ABM import Model
 from read_data import read_dataframe
 from datacollector import Validation_collector
 import arviz as az
-import pandas as pd
 import seaborn as sns
 import random
 
@@ -284,7 +285,7 @@ def create_lineplots(df_t, df_c):
             legend_labels.extend(labels)
 
     # Create a single legend for the entire figure using the handles and labels captured
-    fig.legend(legend_handles, legend_labels, loc='upper center', bbox_to_anchor=(0.5, 0), ncol=3, frameon=False, fontsize='x-large')
+    fig.legend(legend_handles, legend_labels, loc='upper center', bbox_to_anchor=(0.5, 0), ncol=3, frameon=False, fontsize=16)
 
     # Adjust layout for better spacing
 
@@ -292,11 +293,11 @@ def create_lineplots(df_t, df_c):
     fig.subplots_adjust(hspace=0.5) 
 
     # Show plot
-    plt.savefig('post_intervention.png', dpi=700, bbox_inches='tight')
+    plt.savefig('../data/illustrations/post_intervention.png', dpi=700, bbox_inches='tight')
     plt.show()
 
 
-create_lineplots(df_sm_t, df_sm_c)
+create_lineplots(df_sm_t[df_sm_t['step'] >=1] , df_sm_c[df_sm_c['step']>=1])
 
 
 # From here on, only observation 18 months after intervention are used
@@ -313,7 +314,62 @@ print(f"FM Revenue     {round(float(df_sm_t_EL['Revenue_Recipient']-df_sm_c_EL['
 print(f"FM Margin      {round(float(df_sm_t_EL['Profit_Recipient']/df_sm_t_EL['Revenue_Recipient']- df_sm_c_EL['Profit_Recipient']/df_sm_c_EL['Revenue_Recipient']) , 2): >13}{round(float(df_sm_t_EL['Profit_Nonrecipient']/df_sm_t_EL['Revenue_Nonrecipient']- df_sm_c_EL['Profit_Nonrecipient']/df_sm_c_EL['Revenue_Nonrecipient']) ,2): >13}{round(float(df_sm_c_EL['Profit']/df_sm_c_EL['Revenue']),2) :>13}")
 
 #%%
-# Statistics for treatment illustration 
+
+def equilibrium_lineplots(df_c):
+    variables = ['Price', 'Average Number of Employees', 'Trade Volume']
+
+    # Create a 2x3 grid of subplots
+    fig, axes = plt.subplots(1, 3, figsize=(30, 5))  # Adjust figsize as needed
+    axes = axes.flatten()  # Flatten the 2D array of axes for easy iteration
+
+    # Variables to store legend handles and labels
+    legend_handles, legend_labels = [], []
+
+    for i, var in enumerate(variables):
+
+        ax = axes[i]
+
+        # Plot control and treated data on the current subplot axis
+        sns.lineplot(data=df_c, x='step', y=var, label='', color='#52C290', ax=ax, legend=False)
+
+        # Add a vertical line at x=52
+        ax.axvline(x=52, color='red', linestyle='--')
+
+        # Set plot labels and title
+        ax.set_xlabel('Week', fontsize=14)
+        ax.set_ylabel(var, fontsize=14)
+        ax.set_title(f"{var}", fontsize=16)
+
+        # If it's the first iteration, capture the legend handles and labels
+        if i == 0:
+            handles, labels = ax.get_legend_handles_labels()
+            # Create a custom legend handle for the vertical line
+            red_line_handle = Line2D([0], [0], color='red', linestyle='--', label='Time of UCT')
+            # Add them to the list of handles and labels
+            handles.extend([red_line_handle])           
+            labels.extend(['Time of UCT'])
+            legend_handles.extend(handles)
+            legend_labels.extend(labels)
+
+    # Create a single legend for the entire figure using the handles and labels captured
+    #fig.legend(legend_handles, legend_labels, loc='upper center', bbox_to_anchor=(0.5, 0), ncol=3, frameon=False, fontsize=16)
+
+    # Adjust layout for better spacing
+
+    plt.tight_layout()  # Adjust the rect if legend overlaps with subplots
+    fig.subplots_adjust(hspace=0.5) 
+
+    # Show plot
+    plt.savefig('../data/illustrations/additional_outcomes.png', dpi=700, bbox_inches='tight')
+    plt.show()
+
+
+equilibrium_lineplots(df_sm_c[df_sm_c['step']>=1])
+
+
+
+#%%
+# General model Statistics  
 low_saturation_hh = [hh for hh in model_t.all_agents if hh.village.market.saturation == 0]
 high_saturation_hh = [hh for hh in model_t.all_agents if hh.village.market.saturation == 1]
 
@@ -355,7 +411,7 @@ unemployment_t = float(df_sm_t_EL['Unemployment'].iloc[0])
 unemployment_c = float(df_sm_c_EL['Unemployment'].iloc[0])
 print(f"Unemployment T: {unemployment_t}")
 print(f"Unemployment C: {unemployment_c}")
-print(f"Change Unemployment Simulated: {(unemployment_c - unemployment_t) * 100}%")
+print(f"Change Unemployment Simulated: {round(float((unemployment_c - unemployment_t) * 100), 2)} %")
 
 ### Inflation 
 
@@ -363,7 +419,7 @@ print(f"Change Unemployment Simulated: {(unemployment_c - unemployment_t) * 100}
 price_c = df_sm_c_EL['Price'].mean()
 price_t = df_sm_t_EL['Price'].mean()
 
-print(F"Change Inflation {price_t - price_c}")
+print(F"Change Inflation {round(float((price_t - price_c) *100),2)} %")
 
 
 ### Gini
@@ -382,59 +438,8 @@ incomes_t = df_hh_t[df_hh_t['Village'] == 1]['Expenditure']
 # Calculate change in treatment village Gini Coefficient 
 print(f'Change Treated Village GINI: {gini(incomes_t) - gini(incomes_c)}')
 
-
-### Multiplier
-
-def multiplier(GDP_t, GDP_c):
-  dif_GDP = (GDP_t - GDP_c)* len(model_c.all_agents) 
-  transfer_size = len(model_t.intervention_handler.treated_agents)*1000
-  multiplier = (1/transfer_size) * dif_GDP
-  return multiplier
-
-
-expenditure_t = df_sm_t_EL['Expenditure'].values[0] * 116
-expenditure_c = df_sm_c_EL['Expenditure'].values[0] * 116
-stock_t = df_sm_t_EL['Stock'].values[0]
-stock_c = df_sm_c_EL['Stock'].values[0]
-print(stock_t)
-print(stock_c)
-GDP_t = expenditure_t + stock_t 
-GDP_c = expenditure_c + stock_c
-
-print(f"Multiplier: {multiplier(GDP_t, GDP_c)}")
-
-
-#%%
-model_t = Model()
-model_t.datacollector = Validation_collector(model_t)
-model_t.intervention_handler.control = False
-model_t.run_simulation(150)
-df_hh_t = model_t.datacollector.hh_df
-df_sm_t = model_t.datacollector.get_data()
-#%%
-
-def multiplier2(delta_GDP):
-  transfer_size = len(model_t.intervention_handler.treated_agents)*1000
-  multiplier = (1/transfer_size) * delta_GDP
-  return multiplier
-
-# Consumption (all expenditures fall on consumption)
-expenditure = np.array(df_sm_t['Expenditure'].tail(116))*52.2
-expenditure = np.diff(expenditure)
-expenditure = np.cumsum(expenditure)
-expenditure = expenditure[-1] * len(model_t.all_agents)
-
-# Investment (the only form of investment are changes in inventory)
-stock = np.array(df_sm_t['Stock'].tail(116))
-stock = np.diff(stock)
-stock = np.cumsum(stock)[-1] * len(model_t.all_firms)
-
-delta_GDP = expenditure + stock
-print(multiplier2(delta_GDP))
-
-
 ### Spillovers
-#%%
+
 # Spillovers to eligible (i.e. poor) non-recipient households
 print(f"Spillover to elligible: {(df_hh_t[(df_hh_t['Eligible'] == 1)  & (df_hh_t['Treated'] == 0)]['Income'].mean() - df_hh_c[(df_hh_c['Eligible'] == 1) & (df_hh_c['Treated'] == 0)]['Income'].mean()) * conversion}")
 # Spiillovers to ineligible (i.e. rich) non-recipient households
@@ -445,20 +450,52 @@ print(f"Intra-village Spillover: {(df_hh_t[(df_hh_t['Eligible'] == 0) & (df_hh_t
 # Spillovers to ineligible households in treatment villages (intra village spillover)
 print(f"Inter-village Spillover: {(df_hh_t[(df_hh_t['Eligible'] == 0) & (df_hh_t['Village'] == 1)]['Income'].mean() - df_hh_c[(df_hh_c['Eligible'] == 0) & (df_hh_c['Village'] == 1)]['Income'].mean()) * conversion}")
 
+### Multiplier
 
-### Long term impact
-#%%
-
-### Long term impact
-model_t.run_simulation(2000)
+# Extend the time horizon of the simulation 
+model_t.run_simulation(170)
+df_hh_t = model_t.datacollector.hh_df
+df_fm_t = model_t.datacollector.fm_df
 df_sm_t = model_t.datacollector.get_data()
 
-print(df_sm_t[df_sm_t['step'] ==  52]['Expenditure'])
-print(df_sm_t[df_sm_t['step'] == 142]['Expenditure'])
-print(df_sm_t[df_sm_t['step'] == 200]['Expenditure'])
-print(df_sm_t[df_sm_t['step'] == 260]['Expenditure'] )
-print(df_sm_t[df_sm_t['step'] == 400]['Expenditure'] )
+
+def multiplier(delta_GDP):
+  transfer_size = len(model_t.intervention_handler.treated_agents)*1000
+  multiplier = (1/transfer_size) * delta_GDP
+  return multiplier
+
+# Consumption (all expenditures fall on consumption)
+profit = np.array(df_sm_t['Profit'].tail(116))*52
+profit = np.diff(profit)
+profit = np.cumsum(profit)[-1] * len(model_t.all_firms)
+
+# Investment (the only form of investment are changes in inventory)
+wage = np.array(df_sm_t['Wage'].tail(116))*52
+wage = np.diff(wage)
+wage = np.cumsum(wage)[-1] * len(model_t.all_firms)
+
+delta_GDP = profit + wage
+print(f"Multiplier {round(float(multiplier(delta_GDP)), 2)}")
+
+
 #%%
+### Long term impact
+
+# Extend the time horizon of the simulationo  
+model_t.run_simulation(1100)
+df_hh_t = model_t.datacollector.hh_df
+df_sm_t = model_t.datacollector.get_data()
+
+# Get expenditures 3 and 5 years after the transfer
+print(f"Expenditure 3 years after transfer: {round(float(( df_sm_t[df_sm_t['step'] == 210]['Expenditure'].values[0] - df_sm_t[df_sm_t['step'] ==  52]['Expenditure'].values[0])), 2)}")
+print(f"Expenditure 5 years after transfer: {round(float(( df_sm_t[df_sm_t['step'] == 312]['Expenditure'].values[0] - df_sm_t[df_sm_t['step'] ==  52]['Expenditure'].values[0])), 2)}")
+#%%
+"""
+This section examines an alternative desing of the transfer where 
+
+
+
+"""
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.lines import Line2D

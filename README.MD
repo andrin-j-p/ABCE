@@ -1,4 +1,16 @@
-# ABCE
+# Overview
+The code in this package implements the agent-based simulation as described in the masters's thesis "An Agent-Based Exploration of Uncondtional Cash Transfers". 
+
+To run the simulation, naviage to  of three main files 
+
+## Structure
+The 
+
+## Data
+
+
+
+
 run code from console 
 ````
 python -m visualize

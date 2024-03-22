@@ -424,3 +424,36 @@ def sample(pi, sigma, mu):
     variance_samples = sigma.gather(1, pis).detach().squeeze()
     mean_samples = mu.detach().gather(1, pis).squeeze()
     return (gaussian_noise * variance_samples + mean_samples).transpose(0, 1)
+#%%
+import matplotlib.pyplot as plt
+
+# Your arrays of observations
+data1 = [3,5,2,5,7,9,4,4,3]  # Replace [your_data_here] with your first array
+data2 = [6,5,7,8,9,6,6,5,5]  # Replace [your_data_here] with your second array
+data3 = [1,2,3,2,4,5,3,7,7]  # Replace [your_data_here] with your third array
+
+# Set up the matplotlib figure and axes, specifying the number of subplots: 1 row, 3 columns
+fig, axs = plt.subplots(nrows=1, ncols=3, figsize=(15, 5))  # Adjust figsize as needed
+
+# Plot each boxplot on its own subplot
+axs[0].boxplot(data1)
+axs[0].set_title('Data 1')
+axs[0].set_ylim([min(min(data1), min(data2), min(data3)) - 1, max(max(data1), max(data2), max(data3)) + 1])  # Optional: unify y-axis
+
+axs[1].boxplot(data2)
+axs[1].set_title('Data 2')
+axs[1].set_ylim([min(min(data1), min(data2), min(data3)) - 1, max(max(data1), max(data2), max(data3)) + 1])  # Optional: unify y-axis
+
+axs[2].boxplot(data3)
+axs[2].set_title('Data 3')
+axs[2].set_ylim([min(min(data1), min(data2), min(data3)) - 1, max(max(data1), max(data2), max(data3)) + 1])  # Optional: unify y-axis
+
+# Optionally, set the same y-axis limits for all subplots (already done above)
+# ymin = min([min(data) for data in [data1, data2, data3]]) - 1  # Adjust buffer as needed
+# ymax = max([max(data) for data in [data1, data2, data3]]) + 1
+# for ax in axs:
+#     ax.set_ylim([ymin, ymax])
+
+plt.tight_layout()  # Adjust the spacing between the plots
+plt.show()
+# %%

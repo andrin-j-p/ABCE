@@ -4,12 +4,9 @@ from read_data import create_agent_data, is_in_area
 from datacollector import Datacollector
 from intervention_handler import Intervention_handler
 import timeit
-import pstats
-import cProfile
 import random
 
-#@TODO
-# make village population normally distributed rather than uniform
+
 class Firm(mesa.Agent):
   """
   Type:        Mesa Agent Class
@@ -30,7 +27,7 @@ class Firm(mesa.Agent):
     self.max_price = 10    # upper bound for price setting function 
     self.theta = 0.8       # probability for price change
     self.nu = 0.3          # rate for price change 
-    self.phi_l = 0.15       # 10% percent of last week's sales 
+    self.phi_l = 0.15      # 10% percent of last week's sales 
     self.phi_u = 1         # 100% percent of last week's sales 
     self.employees = []    # to keep track of currently employed workers
     # inventory 
@@ -139,8 +136,6 @@ class Firm(mesa.Agent):
     if self.profit >= 0:
       reserves = 0.1 if self.assets >= 0 else 0.9
       self.assets += reserves * self.profit
-      #self.owner.income = (1 - reserves) * self.profit
-      #self.owner.money += (1 - reserves) * self.profit
 
       nr_emp = len(self.employees)
       factor = 0.8 if nr_emp > 0 else 1
@@ -153,7 +148,6 @@ class Firm(mesa.Agent):
       for emp in self.employees:
         emp.money += payout_emp/nr_emp
         emp.income+= payout_emp/nr_emp
-
 
     elif self.profit <= 0 and self.assets + self.profit >= 0:
       self.assets += self.profit
@@ -494,14 +488,7 @@ class Model(mesa.Model):
   def __repr__(self):
     return f'N Households: {len(self.all_agents)} \nN Firms: {len(self.all_firms)} \nN Villages: {len(self.all_villages)}\nN Markets: {len(self.all_markets)}'
 
-if __name__ == "__main__":
-    #cProfile.run("run_simulation()", filename="../data/profile_output.txt", sort='cumulative')
-    
-    # Create a pstats.Stats object from the profile file
-    #profile_stats = pstats.Stats("../data/profile_output.txt")
 
-    # Sort and print the top N entries with the highest cumulative time
-    #profile_stats.strip_dirs().sort_stats('cumulative').print_stats(20)
-    #run_simulation()
+if __name__ == "__main__":
     print('')
 
