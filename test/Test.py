@@ -319,50 +319,7 @@ class TestABM(unittest.TestCase):
 
 
 
-#####################
-# TEST CALIBRATION.PY 
-#####################
 
-#from Simulation import calibration
-"""
-@unittest.skip("Does not hold in data")
-class TestCalibration(unittest.TestCase):
-    
-    Name:        TestABM
-    Description: Unittesting for functions in ABM.py
-    
-    
-    def test_sobol_sampler(self):
-        data = pd.DataFrame({
-        'Type': ['Firm', 'Firm', 'Firm'], 
-        'Name': ['alpha', 'beta', 'gamma'],
-        'Bounds': [(1,10), (-1,5), (0.1, 0.5)]})
-
-        samples = calibration.create_sample_parameters(data, m=4)
-        self.assertEqual(len(samples[0]), 3)
-        para_1 = [s[0] for s in samples]
-        para_2 = [s[1] for s in samples]
-        para_3 = [s[2] for s in samples]
-        self.assertLessEqual(max(para_1), 10)
-        self.assertLessEqual(max(para_2), 5)
-        self.assertLessEqual(max(para_3), 0.5)
-        self.assertGreaterEqual(min(para_1),1 )
-        self.assertGreaterEqual(min(para_2), -1)
-        self.assertGreaterEqual(min(para_3), 0.1)
-    
-    def test_set_parameter(self):
-        sample = {'nu': 5, 'theta': 0, 'phi_l':0.4}
-        model = calibration.Model()
-        model.set_parameters(sample)
-        for firm in model.all_firms:
-            self.assertEqual(firm.nu, 5)
-            self.assertEqual(firm.theta, 0)
-            self.assertEqual(firm.phi_l, 0.4)
-
-    def test_mse(self):
-        pass
-
-"""
 if __name__ == '__main__':
 
     unittest.main()
