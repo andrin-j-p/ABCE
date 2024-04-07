@@ -235,7 +235,7 @@ class Agent(mesa.Agent):
     if len(potential_dealers) < 5:
       return False
     
-    # if the list of best dealers is empty try 3 'random dealers'
+    # if the list of best dealers is empty try 4 'random dealers'
     if len(self.best_dealers) == 0:
       self.best_dealers = random.sample(potential_dealers, k=4)
 

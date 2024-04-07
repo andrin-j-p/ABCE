@@ -12,7 +12,6 @@ import arviz as az
 import dill
 import random
 from read_data import read_dataframe
-import seaborn as sns
 
 np.random.seed(0) 
 random.seed(0)

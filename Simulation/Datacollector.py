@@ -136,6 +136,7 @@ class Validation_collector():
     Description:  Stores data generated in a given step as a pandas df
     """
     td_data = pd.DataFrame(self.td_data)
+    total_amount = td_data['amount'].sum()
     total_volume = td_data['volume'].sum()
 
     # Trade data is no longer used and thus emptied to save memory
@@ -197,8 +198,9 @@ class Validation_collector():
 
           'Price': self.fm_df['Price'].mean(),
           'Trade Volume': total_volume, 
-          'Average Number of Employees': self.fm_df['Employees'].mean(),
+          'Number of Employees': self.fm_df['Employees'].mean(),
           'Unemployment': len(self.hh_df[self.hh_df['Employer'].isna()]) / self.hh_df.shape[0],
+          'Demand Satisfied': total_amount / (self.hh_df['Demand'].sum()/7),
           }
 
     self.data.append(df)
