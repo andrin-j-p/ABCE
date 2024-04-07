@@ -1,110 +1,30 @@
 # Overview
-The code in this package implements the agent-based simulation as described in the masters's thesis "An Agent-Based Exploration of Uncondtional Cash Transfers". 
+This repository contains the code for the agent-based simulation as described in the masters's thesis "An Agent-Based Exploration of Uncondtional Cash Transfers". 
 
-To run the simulation, naviage to  of three main files 
+# How to run the Simulation 
+Before running the simulation please make sure all dependencies as listed in 'dependencies.txt' are satisfied.
 
-## Structure
-The 
+In VSCode, the easiest way to run the simulation is via the 'validation.py' file which is located in the directory 'Simulation'. The 'validation.py' file is organized as a jupyter notebook and can be executed by running the constituent code cells as described [here](https://code.visualstudio.com/docs/python/jupyter-support-py). This allows to reproduce the outcomes reported in the thesis step-by-step and reproduce the corresponding plots.  
 
-## Data
-
-
-
-
-run code from console 
+The interactive visualization can be run from the terminal by naviaging to the 'Simulation' directory and executing the 'visualize.py' file via the following comand line code:
 ````
 python -m visualize
 ````
+This will first run the simulation and then creates a link to a local dash application. Following the link should automatically open the interactive visualization in the default browser. 
 
-GIT
-===
-To initialize a git repo, create it on github, swith to the direcory the project ought to be saved locally. Then copy the https link and run 
-````
->>> git clone <url>
-````
+# Organization 
+The core implementation of the simulation can be found in 'ABM.py'. Its execution relies on the following additional files:
 
-To tell git that we want to track changes made to a file called hello.py add it:
+`*' `**' read_data.py:`**' Implements some of the functionalities used to initialize the model, such as the spatial layout of the simulation.    
 
-````
->>> git add hello.py
-```` 
+`*' `**' datacollector.py:`**' Implements the classes and functions used to extract agent- and aggregate level data during runtime.
 
-To save the changes made to the file hello.py commit it:
-````
->>> git commit -m "message"
-````
+`*' `**' intervention_handler.py:`**' Implements the randomization proceedure and intervention. 
 
-To add and commit everything simultaniously run
-````
->>> git commit -am "message"
-````
+The calibraiton proceedure described in the thesis is implemented in the 'calibration.py' file. The version employing the surrogate model is located in the options folder together with the code used to create some of the
+additional figures and illustrations. 
 
-To create a new branch
-````
->>> git checkout -b branch1
-````
+Finally, the 'test' folder contains a set of unittests to analyise the functionality of the simulation.
 
-To merge the branch, "branch1" into main, first switch to main and then run:
-````
->>> git merge "branch1"
-````
-
-To switch back to main run
-````
->>> git checkout main
-````
-
-Push main to github
-````
-git push -u origin <branch>
-````
-
-An additional handy command is git status which reports which files are tracked etc. 
-````
->>> git status
-````
-
-For git large file delition:
-1) delete 
-2) run 
-````
-git reset --soft HEAD~3
-````
-## Activate environment
-To activate virtual environment run:
-````
-python -m venv venv
-. venv\scripts\activate
-````
-Then pip install all libraries. For instance to virtuall install 'Flask' run:
-````
-pip install Fask
-````
-To install all requirements run:
-````
-pip install -r requirements.txt
-````
-## Run flask application
-In order to run the application move to the 'flaskr' directory and type:
-````
-flask run
-````
-This automatically regocnizes the application since it is called 'app.py'. Follow the provided link and the html opens.
-To run the application in the debug mode and enable f.i. auto-updating open powershell terminal and type:
-````
-$env:FLASK_ENV = "development"
-flask run
-````
-To use debug mode:
-````
-flask --app app.py --debug run
-````
-
-## Miscilanious
-To execute the unittests without printing anything to the console use the complier flag- b
-````
-python -m Test -b
-````
-
-
-python -m memory_profiler calibration
+# Data
+All data files used to calibrate and validate the model are located in the directory Simulation/data/raw_data.
