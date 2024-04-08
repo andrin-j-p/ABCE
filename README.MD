@@ -15,11 +15,11 @@ This will first run the simulation and then creates a link to a local dash appli
 # Organization 
 The core implementation of the simulation can be found in 'ABM.py'. Its execution relies on the following additional files:
 
-* `**' read_data.py:`**' Implements some of the functionalities used to initialize the model, such as the spatial layout of the simulation.    
+* `read_data.py:' Implements some of the functionalities used to initialize the model, such as the spatial layout of the simulation.    
 
-* `**' datacollector.py:`**' Implements the classes and functions used to extract agent- and aggregate level data during runtime.
+* `datacollector.py:' Implements the classes and functions used to extract agent- and aggregate level data during runtime.
 
-* `**' intervention_handler.py:`**' Implements the randomization proceedure and intervention. 
+* `intervention_handler.py:' Implements the randomization proceedure and intervention. 
 
 The calibraiton proceedure described in the thesis is implemented in the 'calibration.py' file. The version employing the surrogate model is located in the options folder together with the code used to create some of the
 additional figures and illustrations. 
