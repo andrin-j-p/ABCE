@@ -27,4 +27,4 @@ additional figures and illustrations.
 Finally, the 'test' folder contains a set of unittests to analyise the functionality of the simulation.
 
 # Data
-All data files used to calibrate and validate the model are located in the directory Simulation/data/raw_data.
+All data files, as compiled by Egger et. al. (2022), and used to calibrate and validate the model are located in the directory Simulation/data/raw_data.
