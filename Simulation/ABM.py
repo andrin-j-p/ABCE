@@ -41,8 +41,6 @@ class Firm(mesa.Agent):
     self.assets = 250 # illiquid assets
     self.profit = 0   # weekly profit
     self.revenue = 0  # weekly revenues
-    # wage @DELETE
-    self.wage_bill = 0
 
 
   def set_price(self):
@@ -72,7 +70,7 @@ class Firm(mesa.Agent):
   def produce(self):
     """
     Type:        Method 
-    Description: Generate output according to firm idiosyncratic production function @ source of heterog
+    Description: Generate output according to firm idiosyncratic production function 
     """
     # Output is a function of employees' and firms' productivity parameters
     amount = self.productivity * (sum(employee.productivity for employee in self.employees)  + self.owner.productivity)
@@ -188,6 +186,7 @@ class Firm(mesa.Agent):
       # set price for this month
       self.set_price()
 
+
 class Agent(mesa.Agent):
   """
   Type:         Mesa Agent Class
@@ -239,7 +238,7 @@ class Agent(mesa.Agent):
     if len(self.best_dealers) == 0:
       self.best_dealers = random.sample(potential_dealers, k=4)
 
-    # if price of best dealer increased compared to last week try a new dealer at random @spite
+    # if price of best dealer increased compared to last week try a new dealer at random 
     # only checked from the second week onwards when the self.best_dealer_price contains a value
     elif self.best_dealers[0].price > self.best_dealer_price:
 
@@ -325,7 +324,8 @@ class Agent(mesa.Agent):
 class Village(mesa.Agent):
     """
     Type:         Mesa Agent Class
-    Description:  Physical location of households, and by extension firms. Determines social environment of agents
+    Description:  Physical location of households, and by extension firms. 
+                  Determines social environment of agents
     """
     def __init__(self, unique_id, model, pos, county, market):
       super().__init__(unique_id, model)
