@@ -6,7 +6,7 @@ from shapely.geometry import Point, shape
 import warnings
 import geopandas as gpd
 
-# Supress runtime warning. Not imperative for execution 
+# Supress runtime warning. Not integral for execution 
 warnings.simplefilter(action='ignore', category=pd.errors.PerformanceWarning)
 
 def read_dataframe(file_name, retval="df"):
